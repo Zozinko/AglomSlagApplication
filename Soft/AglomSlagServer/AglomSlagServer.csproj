@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HotChocolate.AspNetCore" Version="16.6.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="AglomCalculator">
+      <HintPath>..\MathLibs\AglomCalculator.dll</HintPath>
+    </Reference>
+    <Reference Include="UBFBaseLibrary">
+      <HintPath>..\MathLibs\UBFBaseLibrary.dll</HintPath>
+    </Reference>
+    <Reference Include="UBFCalculationLibrary">
+      <HintPath>..\MathLibs\UBFCalculationLibrary.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
