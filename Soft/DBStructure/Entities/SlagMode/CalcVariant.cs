@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text;
 
 namespace DBStructure.Entities.SlagMode
 {
@@ -26,15 +25,14 @@ namespace DBStructure.Entities.SlagMode
         public float CokeAshSiO2Content { get; set; }
         public float CokeAshAl2O3Content { get; set; }
         public float CokeAshMgOContent { get; set; }
-
         #endregion
 
         #region Slag
         public float SlagCaOContent { get; set; }
         public float SlagSiO2Content { get; set; }
         public float SlagTiO2Content { get; set; }
-
         #endregion
+
         #region Castiron
         public float CiTemperature { get; set; }
         public float CiSiContent { get; set; }
@@ -47,8 +45,13 @@ namespace DBStructure.Entities.SlagMode
 
         #region Relations
         public required BlastFurnace BlastFurnace { get; set; }
-        public VariantRelation? ParentRelation { get; set; }
-        public List<VariantRelation>? ChildRelation { get; set; }
+        
+        // --- НОВАЯ САМОРЕФЕРЕНЦИАЛЬНАЯ СВЯЗЬ ---
+        public int? ParentId { get; set; } // Nullable, так как у корневого варианта родителя нет
+        public CalcVariant? Parent { get; set; }
+        public List<CalcVariant> Children { get; set; } = new();
+        // ---------------------------------------
+
         public required List<ComponentVariant> ComponentVariants { get; set; }
         #endregion
     }

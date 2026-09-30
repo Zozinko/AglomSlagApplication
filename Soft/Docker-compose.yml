@@ -1,0 +1,67 @@
+version: '3.9'
+
+services:
+  postgres:
+    build:
+      context: ./docker/postgres
+      dockerfile: Dockerfile
+    container_name: aglom_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - agloslag_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  migrator:
+    build:
+      context: .
+      dockerfile: docker/migrator/Dockerfile # <-- НОВЫЙ ПУТЬ
+    container_name: aglom_migrator
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Передаём строки подключения прямо в скрипт entrypoint.sh
+      CONNECTION_SLAG: "Host=postgres;Port=5432;Database=SlagMode;Username=postgres;Password=postgres"
+      CONNECTION_AUTH: "Host=postgres;Port=5432;Database=Auth;Username=postgres;Password=postgres"
+    networks:
+      - agloslag_network
+    restart: "no" # Мигратор отработает и завершится
+
+  graphql-api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    container_name: aglom_graphql_api
+    depends_on:
+      migrator:
+        condition: service_completed_successfully # Ждёт, пока мигратор успешно завершится
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__SlagModeContext: "Host=postgres;Port=5432;Database=SlagMode;Username=postgres;Password=postgres"
+      ConnectionStrings__AuthContext: "Host=postgres;Port=5432;Database=Auth;Username=postgres;Password=postgres"
+    ports:
+      - "5000:8080"
+    networks:
+      - agloslag_network
+    restart: unless-stopped
+
+networks:
+  agloslag_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

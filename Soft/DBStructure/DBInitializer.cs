@@ -1,31 +1,28 @@
-﻿using DBStructure.DbContexts;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace DBStructure
 {
     public static class DBInitializer
     {
-       public static async Task InitializeBases(IServiceProvider serviceProvider)
-       {
+        public static async Task MigrateBasesAsync(IServiceProvider serviceProvider)
+        {
             using var scope = serviceProvider.CreateScope();
             var contexts = GetAllDbContexts(scope.ServiceProvider);
-
+            
             foreach (var context in contexts)
             {
                 var contextName = context.GetType().Name;
                 try
                 {
+                    // MigrateAsync сам создаст БД и применит миграции
                     await context.Database.MigrateAsync();
-                    Console.WriteLine($"База данных {contextName} мигрировала.");
-
+                    Console.WriteLine($"Миграции для базы данных {contextName} успешно применены.");
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Ошибка при миграции базы данных {contextName}: {ex.Message}");
+                    throw;
                 }
             }
         }
@@ -35,7 +32,7 @@ namespace DBStructure
             using var scope = serviceProvider.CreateScope();
             var contexts = GetAllDbContexts(scope.ServiceProvider);
             var allAvailable = true;
-
+            
             foreach (var context in contexts)
             {
                 var contextName = context.GetType().Name;
@@ -46,38 +43,23 @@ namespace DBStructure
                         Console.WriteLine($"База данных {contextName} недоступна.");
                         allAvailable = false;
                     }
+                    else
+                    {
+                        Console.WriteLine($"База данных {contextName} доступна.");
+                    }
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Ошибка при проверке базы данных {contextName}: {ex.Message}");
+                    allAvailable = false;
                 }
             }
             return allAvailable;
         }
 
-        public static async Task InitializeDatabases(IServiceProvider serviceProvider)
-        {
-            using var scope = serviceProvider.CreateScope();
-            var contexts = GetAllDbContexts(scope.ServiceProvider);
-            foreach (var context in contexts)
-            {
-                var contextName = context.GetType().Name;
-                try
-                {
-                    await context.Database.EnsureCreatedAsync();
-                    Console.WriteLine($"База данных {contextName} создана.");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Ошибка при создании базы данных {contextName}: {ex.Message}");
-                }
-            }
-        }
-
         private static List<DbContext> GetAllDbContexts(IServiceProvider serviceProvider)
         {
             var contexts = new List<DbContext>();
-            // Получаем все зарегистрированные DbContext
             var dbContextTypes = serviceProvider.GetServices<DbContext>();
             foreach (var context in dbContextTypes)
             {

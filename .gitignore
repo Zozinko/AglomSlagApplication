@@ -291,6 +291,9 @@ UpgradeLog*.htm
 ServiceFabricBackup/
 *.rptproj.bak
 
+#JB Rider
+**.idea
+
 # SQL Server files
 *.mdf
 *.ldf

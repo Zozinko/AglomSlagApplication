@@ -18,7 +18,8 @@ namespace DBStructure.Entities.SlagMode
         public float SContent { get; set; }
         public float MnOContent { get; set; }
         public float TiO2Content { get; set; }
-
-        public List<CalcVariant> CalcVariants { get; set; } = new();
+        
+        public CalcVariant CalcVariant { get; set; } = null!;
+        public ComponentGuide ComponentGuide { get; set; } = null!;
     }
 }

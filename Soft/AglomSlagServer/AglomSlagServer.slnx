@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="..\DBStructure\DBStructure.csproj" Type="Classic C#" />
   <Project Path="AglomSlagServer.csproj" />
 </Solution>
