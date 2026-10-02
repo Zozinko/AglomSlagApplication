@@ -24,6 +24,9 @@
     <Reference Include="AglomCalculator">
       <HintPath>..\MathLibs\AglomCalculator.dll</HintPath>
     </Reference>
+    <Reference Include="SlagSolverLibrary">
+      <HintPath>..\MathLibs\SlagSolverLibrary.dll</HintPath>
+    </Reference>
     <Reference Include="UBFBaseLibrary">
       <HintPath>..\MathLibs\UBFBaseLibrary.dll</HintPath>
     </Reference>
