@@ -5,6 +5,7 @@ COPY AglomSlagServer/AglomSlagServer.slnx AglomSlagServer/
 
 COPY AglomSlagServer/*.csproj AglomSlagServer/
 COPY DBStructure/*.csproj DBStructure/
+COPY SlagModeSolver/SlagModeSolver.csproj SlagModeSolver/
 
 RUN dotnet restore AglomSlagServer/AglomSlagServer.slnx
 

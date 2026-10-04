@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <Reference Include="SlagSolverLibrary">
+        <HintPath>..\MathLibs\SlagSolverLibrary.dll</HintPath>
+      </Reference>
+      <Reference Include="UBFBaseLibrary">
+        <HintPath>..\MathLibs\UBFBaseLibrary.dll</HintPath>
+      </Reference>
+      <Reference Include="UBFCalculationLibrary">
+        <HintPath>..\MathLibs\UBFCalculationLibrary.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
+</Project>

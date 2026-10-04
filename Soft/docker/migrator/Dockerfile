@@ -9,6 +9,7 @@ ENV PATH="$PATH:/root/.dotnet/tools"
 COPY AglomSlagServer/AglomSlagServer.slnx AglomSlagServer/
 COPY AglomSlagServer/*.csproj AglomSlagServer/
 COPY DBStructure/*.csproj DBStructure/
+COPY SlagModeSolver/*.csproj SlagModeSolver/
 
 # Восстанавливаем пакеты
 RUN dotnet restore AglomSlagServer/AglomSlagServer.slnx
