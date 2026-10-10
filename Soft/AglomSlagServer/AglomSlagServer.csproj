@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Google.OrTools" Version="9.15.6755" />
     <PackageReference Include="HotChocolate.AspNetCore" Version="16.6.6" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
@@ -37,10 +38,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DBStructure\DBStructure.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="GraphQL\Types\Inputs\SlagMode\" />
+    <ProjectReference Include="..\SlagModeSolver\SlagModeSolver.csproj" />
   </ItemGroup>
 
 </Project>

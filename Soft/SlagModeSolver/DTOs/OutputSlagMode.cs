@@ -35,7 +35,7 @@ public class OutputSlagMode
         /// <summary>
         /// Всего ЖРМ
         /// </summary>
-        public double TotalMat;
+        public double TotalMat {get; set;}
 
         /// <summary>
         /// Вязкость при 1400

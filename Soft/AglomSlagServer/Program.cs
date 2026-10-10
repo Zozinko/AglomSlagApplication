@@ -25,9 +25,11 @@ builder.Services.AddDbContext<AuthContext>(opt =>
 builder.Services.AddScoped<AglomCalculationService>();
 builder.Services.AddScoped<AglomCalculatorService>();
 builder.Services.AddScoped<SlagModeQueryService>();
+builder.Services.AddScoped<SlagModeCalculationService>();
 
 builder.Services
     .AddGraphQLServer()
+    .ModifyRequestOptions(opt => opt.IncludeExceptionDetails = true) // <--- ДОБАВИТЬ ЭТУ СТРОКУ
     .AddQueryType<Query>()
     .AddMutationType<Mutation>();
 

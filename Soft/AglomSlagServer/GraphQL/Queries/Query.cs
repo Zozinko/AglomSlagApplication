@@ -5,19 +5,18 @@ namespace AglomSlagServer.Queries;
 
 public class Query(SlagModeQueryService slagModeService)
 {
-    private readonly SlagModeQueryService _slagModeService = slagModeService;
 
     public string Hello() => "Aglom GraphQL API";
     
     public async Task<List<BlastFurnace>> GetBlastFurnaces() => 
-        await _slagModeService.GetBlastFurnacesAsync();
+        await slagModeService.GetBlastFurnacesAsync();
 
     public async Task<List<ComponentGuide>> GetComponentGuides() => 
-        await _slagModeService.GetComponentGuidesAsync();
+        await slagModeService.GetComponentGuidesAsync();
 
     public async Task<List<CalcVariant>> GetCalcVariants() => 
-        await _slagModeService.GetCalcVariantsAsync();
+        await slagModeService.GetCalcVariantsAsync();
 
     public async Task<CalcVariant?> GetCalcVariantById(int variantId) => 
-        await _slagModeService.GetCalcVariantByIdAsync(variantId);
+        await slagModeService.GetCalcVariantByIdAsync(variantId);
 }

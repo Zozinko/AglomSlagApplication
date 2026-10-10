@@ -1,20 +1,20 @@
 ﻿using AglomSlagServer.Types;
 using AglomSlagServer.Types.Inputs;
 using AglomGraphQL.Api.Services;
+using SlagModeSolver.DTOs;
 
 namespace AglomSlagServer.Mutations;
 
-public class Mutation
+public class Mutation(SlagModeCalculationService slagCalcService, AglomCalculationService aglomCalcService)
 {
-    private readonly AglomCalculationService _service;
-
-    public Mutation(AglomCalculationService service)
-    {
-        _service = service;
-    }
 
     public AglomCalculationResult CalculateAglom(CalculateAglomInput input)
     {
-        return _service.Calculate(input);
+        return aglomCalcService.Calculate(input);
+    }
+    
+    public OutputSlagMode CalculateSlagMode(InputDataModel input)
+    {
+        return slagCalcService.Calculate(input);
     }
 }
