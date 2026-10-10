@@ -15,6 +15,7 @@ namespace DBStructure.Entities.SlagMode
         public DateTime CalcDate { get; set; }
         public DateTime SaveTime { get; } = DateTime.Now;
         public required string VariantName { get; set; }
+        public bool IsImport { get; set; }
         #endregion
 
         #region Coke
@@ -46,11 +47,9 @@ namespace DBStructure.Entities.SlagMode
         #region Relations
         public required BlastFurnace BlastFurnace { get; set; }
         
-        // --- НОВАЯ САМОРЕФЕРЕНЦИАЛЬНАЯ СВЯЗЬ ---
-        public int? ParentId { get; set; } // Nullable, так как у корневого варианта родителя нет
+        public int? ParentId { get; set; }
         public CalcVariant? Parent { get; set; }
         public List<CalcVariant> Children { get; set; } = new();
-        // ---------------------------------------
 
         public required List<ComponentVariant> ComponentVariants { get; set; }
         #endregion

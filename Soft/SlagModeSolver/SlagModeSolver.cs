@@ -8,43 +8,43 @@ namespace SlagModeSolver;
 
 public class SlagModeSolver
 {
-    public static OutputSlagMode GetTableData()
+    public static OutputSlagMode GetTableData(InputDataModel inputData)
     {
         #region SlagModeData
         
-        var totalMaterials = InputDataModel.Components.Sum(component => component.Consumption);
+        var totalMaterials = inputData.Components.Sum(component => component.Consumption);
         var calcModel = new SlagMode();
         
         calcModel.BaseChugun = new UBF_Chugun
         {
-            Si = InputDataModel.Iron.Si,
-            S = InputDataModel.Iron.S,
-            Mn = InputDataModel.Iron.Mn,
-            C = InputDataModel.Iron.C,
-            Ti = InputDataModel.Iron.Ti,
-            Cr = InputDataModel.Iron.Cr,
-            Temp = InputDataModel.Iron.Temp
+            Si = inputData.Iron.Si,
+            S = inputData.Iron.S,
+            Mn = inputData.Iron.Mn,
+            C = inputData.Iron.C,
+            Ti = inputData.Iron.Ti,
+            Cr = inputData.Iron.Cr,
+            Temp = inputData.Iron.Temp
         };
 
         calcModel.BaseSlag = new UBF_Slag()
         {
-            CaO = InputDataModel.Slag.CaO,
-            SiO2 = InputDataModel.Slag.SiO2,
-            TiO2 = InputDataModel.Slag.TiO2
+            CaO = inputData.Slag.CaO,
+            SiO2 = inputData.Slag.SiO2,
+            TiO2 = inputData.Slag.TiO2
         };
 
         calcModel.BaseKoks = new UBF_KoksComponent()
         {
-            Rashod = InputDataModel.Coke.Consumption,
-            Sera = InputDataModel.Coke.Sulfur,
-            Zola = InputDataModel.Coke.AshAmount,
-            ZolaCaO = InputDataModel.Coke.AshCaOFraction,
-            ZolaSiO2 = InputDataModel.Coke.AshSiO2Fraction,
-            ZolaAl2O3 = InputDataModel.Coke.AshAl2O3Fraction,
-            ZolaMgO = InputDataModel.Coke.AshMgOFraction
+            Rashod = inputData.Coke.Consumption,
+            Sera = inputData.Coke.Sulfur,
+            Zola = inputData.Coke.AshAmount,
+            ZolaCaO = inputData.Coke.AshCaOFraction,
+            ZolaSiO2 = inputData.Coke.AshSiO2Fraction,
+            ZolaAl2O3 = inputData.Coke.AshAl2O3Fraction,
+            ZolaMgO = inputData.Coke.AshMgOFraction
         };
 
-        foreach (var component in InputDataModel.Components)
+        foreach (var component in inputData.Components)
         {
             calcModel.BaseShihta.Add(new UBF_ShihtaComponent
             {
@@ -71,7 +71,7 @@ public class SlagModeSolver
             TotalMat = totalMaterials
         };
         data.MaterialParts = [];
-        foreach (var component in InputDataModel.Components)
+        foreach (var component in inputData.Components)
         {
             var componentPart = component.Consumption/totalMaterials;
             data.MaterialParts.Add(new Dictionary<string, double>{ { component.Sourcename, componentPart } });
@@ -82,7 +82,7 @@ public class SlagModeSolver
         #region SlagSolverData
         
         var solver = new SlagSolver();
-        var solverData = solver.Solve(InputDataModel.Slag.CaO, InputDataModel.Slag.SiO2, InputDataModel.Slag.Al2O3, InputDataModel.Slag.MgO);
+        var solverData = solver.Solve(inputData.Slag.CaO, inputData.Slag.SiO2, inputData.Slag.Al2O3, inputData.Slag.MgO);
         
         data.CaOBalSlagMass = calcModel.UdWeight;
         data.BalSlagMass = calcModel.MassOfOxSlagSum;

@@ -24,6 +24,7 @@ builder.Services.AddDbContext<AuthContext>(opt =>
 
 builder.Services.AddScoped<AglomCalculationService>();
 builder.Services.AddScoped<AglomCalculatorService>();
+builder.Services.AddScoped<SlagModeQueryService>();
 
 builder.Services
     .AddGraphQLServer()
