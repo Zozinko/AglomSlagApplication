@@ -39,4 +39,8 @@
     <ProjectReference Include="..\DBStructure\DBStructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="GraphQL\Types\Inputs\SlagMode\" />
+  </ItemGroup>
+
 </Project>

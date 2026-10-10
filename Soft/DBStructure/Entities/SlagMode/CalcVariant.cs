@@ -11,7 +11,7 @@ namespace DBStructure.Entities.SlagMode
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int VariantId { get; set; }
-        public int BFId { get; set; }
+        public int BfId { get; set; }
         public DateTime CalcDate { get; set; }
         public DateTime SaveTime { get; } = DateTime.Now;
         public required string VariantName { get; set; }
@@ -32,6 +32,8 @@ namespace DBStructure.Entities.SlagMode
         public float SlagCaOContent { get; set; }
         public float SlagSiO2Content { get; set; }
         public float SlagTiO2Content { get; set; }
+        public float SlagAl2O3Content { get; set; }
+        public float SlagMgOContent { get; set; }
         #endregion
 
         #region Castiron
@@ -41,7 +43,7 @@ namespace DBStructure.Entities.SlagMode
         public float CiMnContent { get; set; }
         public float CiCContent { get; set; }
         public float CiTiContent { get; set; }
-        public float CICrContent { get; set; }
+        public float CiCrContent { get; set; }
         #endregion
 
         #region Relations

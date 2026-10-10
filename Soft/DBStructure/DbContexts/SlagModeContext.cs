@@ -15,7 +15,7 @@ namespace DBStructure.DbContexts
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             #region Keys
-            modelBuilder.Entity<BlastFurnace>().HasKey(bf => bf.BFId);
+            modelBuilder.Entity<BlastFurnace>().HasKey(bf => bf.BfId);
             modelBuilder.Entity<CalcVariant>().HasKey(cv => cv.VariantId);
             modelBuilder.Entity<ComponentGuide>().HasKey(cg => cg.ComponentId);
             modelBuilder.Entity<ComponentVariant>().HasKey(cv => new { cv.VariantId, cv.ComponentId });
@@ -27,7 +27,7 @@ namespace DBStructure.DbContexts
             modelBuilder.Entity<CalcVariant>()
                 .HasOne(cv => cv.BlastFurnace)
                 .WithMany(bf => bf.CalcVariants)
-                .HasForeignKey(cv => cv.BFId)
+                .HasForeignKey(cv => cv.BfId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             // 2. Связь CalcVariant (Parent -> Children)
@@ -58,7 +58,7 @@ namespace DBStructure.DbContexts
             modelBuilder.Entity<BlastFurnace>().HasData(
                 new BlastFurnace
                 {
-                    BFId = -1,
+                    BfId = -1,
                     BfName = "TestBF"
                 }
             );
@@ -80,7 +80,7 @@ namespace DBStructure.DbContexts
                 new 
                 {
                     VariantId = -1,
-                    BFId = -1,
+                    BfId = -1,
                     CalcDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                     SaveTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                     VariantName = "-1st variant",
@@ -97,6 +97,8 @@ namespace DBStructure.DbContexts
                     SlagCaOContent = 40.9f,
                     SlagSiO2Content = 36.56f,
                     SlagTiO2Content = 0.01f,
+                    SlagAl2O3Content = 24.6f,
+                    SlagMgOContent = 2f,
                     // Castiron
                     CiTemperature = 1450f,
                     CiSiContent = 0.512f,
@@ -104,7 +106,7 @@ namespace DBStructure.DbContexts
                     CiMnContent = 0.2f,
                     CiCContent = 4.702f,
                     CiTiContent = 0f,
-                    CICrContent = 0f
+                    CiCrContent = 0f
                 }
             );
 

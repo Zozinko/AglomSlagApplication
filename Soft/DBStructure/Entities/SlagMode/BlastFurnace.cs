@@ -10,7 +10,7 @@ namespace DBStructure.Entities.SlagMode
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int BFId{ get; set; }
+        public int BfId{ get; set; }
         public required string BfName { get; set; }
 
         public List<CalcVariant> CalcVariants { get; set; } = new();
