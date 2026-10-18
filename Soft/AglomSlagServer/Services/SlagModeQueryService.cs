@@ -7,38 +7,38 @@ namespace AglomGraphQL.Api.Services;
 
 public class SlagModeQueryService
 {
-    private readonly SlagModeContext _context;
+    private readonly IDbContextFactory<SlagModeContext> _contextFactory;
 
-    public SlagModeQueryService(SlagModeContext context)
+    public SlagModeQueryService(IDbContextFactory<SlagModeContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
-    // 1. Получить все доменные печи
     public async Task<List<BlastFurnace>> GetBlastFurnacesAsync()
     {
-        return await _context.BlastFurnaces.ToListAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.BlastFurnaces.ToListAsync();
     }
 
-    // 2. Получить справочник всех компонентов
     public async Task<List<ComponentGuide>> GetComponentGuidesAsync()
     {
-        return await _context.ComponentsGuide.ToListAsync();
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.ComponentsGuide.ToListAsync();
     }
 
-    // 3. Получить все варианты расчётов (с загруженными связями для GraphQL)
     public async Task<List<CalcVariant>> GetCalcVariantsAsync()
     {
-        return await _context.CalcVariants
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.CalcVariants
             .Include(cv => cv.BlastFurnace)
             .Include(cv => cv.ComponentVariants)
             .ToListAsync();
     }
 
-    // 4. Получить конкретный вариант расчёта по ID
     public async Task<CalcVariant?> GetCalcVariantByIdAsync(int variantId)
     {
-        return await _context.CalcVariants
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        return await context.CalcVariants
             .Include(cv => cv.BlastFurnace)
             .Include(cv => cv.ComponentVariants)
             .FirstOrDefaultAsync(cv => cv.VariantId == variantId);
@@ -48,25 +48,28 @@ public class SlagModeQueryService
     
     public async Task<BlastFurnace> AddBlastFurnaceAsync(string bfName)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var bf = new BlastFurnace { BfName = bfName };
-        _context.BlastFurnaces.Add(bf);
-        await _context.SaveChangesAsync();
+        context.BlastFurnaces.Add(bf);
+        await context.SaveChangesAsync();
         return bf;
     }
 
     public async Task<BlastFurnace?> UpdateBlastFurnaceAsync(int bfId, string bfName)
     {
-        var bf = await _context.BlastFurnaces.FindAsync(bfId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var bf = await context.BlastFurnaces.FindAsync(bfId);
         if (bf == null) return null;
         
         bf.BfName = bfName;
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return bf;
     }
 
     public async Task<bool> DeleteBlastFurnaceAsync(int bfId)
     {
-        var bf = await _context.BlastFurnaces
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var bf = await context.BlastFurnaces
             .Include(b => b.CalcVariants)
             .FirstOrDefaultAsync(b => b.BfId == bfId);
         
@@ -80,8 +83,8 @@ public class SlagModeQueryService
                 $"Невозможно удалить печь '{bf.BfName}', так как она используется в вариантах расчёта: {variantList}");
         }
 
-        _context.BlastFurnaces.Remove(bf);
-        await _context.SaveChangesAsync();
+        context.BlastFurnaces.Remove(bf);
+        await context.SaveChangesAsync();
         return true;
     }
 
@@ -89,6 +92,7 @@ public class SlagModeQueryService
     
     public async Task<ComponentGuide> AddComponentGuideAsync(ComponentGuideInput input)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
         var component = new ComponentGuide
         {
             ComponentName = input.ComponentName,
@@ -103,14 +107,15 @@ public class SlagModeQueryService
             TiO2Content = input.TiO2Content
         };
 
-        _context.ComponentsGuide.Add(component);
-        await _context.SaveChangesAsync();
+        context.ComponentsGuide.Add(component);
+        await context.SaveChangesAsync();
         return component;
     }
 
     public async Task<ComponentGuide?> UpdateComponentGuideAsync(int componentId, ComponentGuideInput input)
     {
-        var component = await _context.ComponentsGuide.FindAsync(componentId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var component = await context.ComponentsGuide.FindAsync(componentId);
         if (component == null) return null;
 
         component.ComponentName = input.ComponentName;
@@ -124,13 +129,14 @@ public class SlagModeQueryService
         component.MnOContent = input.MnOContent;
         component.TiO2Content = input.TiO2Content;
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return component;
     }
 
     public async Task<bool> DeleteComponentGuideAsync(int componentId)
     {
-        var component = await _context.ComponentsGuide
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var component = await context.ComponentsGuide
             .Include(c => c.ComponentVariants)
             .ThenInclude(cv => cv.CalcVariant)
             .FirstOrDefaultAsync(c => c.ComponentId == componentId);
@@ -149,8 +155,8 @@ public class SlagModeQueryService
                 $"Невозможно удалить компонент '{component.ComponentName}', так как он используется в вариантах расчёта: {variantList}");
         }
 
-        _context.ComponentsGuide.Remove(component);
-        await _context.SaveChangesAsync();
+        context.ComponentsGuide.Remove(component);
+        await context.SaveChangesAsync();
         return true;
     }
 
@@ -158,9 +164,14 @@ public class SlagModeQueryService
     
     public async Task<CalcVariant> AddCalcVariantAsync(CalcVariantInput input, List<ComponentVariantInput> components)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var bf = await context.BlastFurnaces.FindAsync(input.BfId) 
+            ?? throw new InvalidOperationException($"Печь с ID {input.BfId} не найдена");
+
         var variant = new CalcVariant
         {
             BfId = input.BfId,
+            BlastFurnace = bf,
             CalcDate = input.CalcDate,
             VariantName = input.VariantName,
             IsImport = input.IsImport,
@@ -183,8 +194,6 @@ public class SlagModeQueryService
             CiCContent = input.CiCContent,
             CiTiContent = input.CiTiContent,
             CiCrContent = input.CiCrContent,
-            BlastFurnace = await _context.BlastFurnaces.FindAsync(input.BfId) 
-                ?? throw new InvalidOperationException($"Печь с ID {input.BfId} не найдена"),
             ComponentVariants = components.Select(c => new ComponentVariant
             {
                 ComponentId = c.ComponentId,
@@ -201,14 +210,15 @@ public class SlagModeQueryService
             }).ToList()
         };
 
-        _context.CalcVariants.Add(variant);
-        await _context.SaveChangesAsync();
+        context.CalcVariants.Add(variant);
+        await context.SaveChangesAsync();
         return variant;
     }
 
     public async Task<CalcVariant?> UpdateCalcVariantAsync(int variantId, CalcVariantInput input, List<ComponentVariantInput> components)
     {
-        var variant = await _context.CalcVariants
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var variant = await context.CalcVariants
             .Include(v => v.ComponentVariants)
             .FirstOrDefaultAsync(v => v.VariantId == variantId);
 
@@ -238,7 +248,7 @@ public class SlagModeQueryService
         variant.CiTiContent = input.CiTiContent;
         variant.CiCrContent = input.CiCrContent;
 
-        _context.ComponentVariants.RemoveRange(variant.ComponentVariants);
+        context.ComponentVariants.RemoveRange(variant.ComponentVariants);
 
         variant.ComponentVariants = components.Select(c => new ComponentVariant
         {
@@ -256,17 +266,18 @@ public class SlagModeQueryService
             TiO2Content = c.TiO2Content
         }).ToList();
 
-        await _context.SaveChangesAsync();
+        await context.SaveChangesAsync();
         return variant;
     }
 
     public async Task<bool> DeleteCalcVariantAsync(int variantId)
     {
-        var variant = await _context.CalcVariants.FindAsync(variantId);
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var variant = await context.CalcVariants.FindAsync(variantId);
         if (variant == null) return false;
 
-        _context.CalcVariants.Remove(variant);
-        await _context.SaveChangesAsync();
+        context.CalcVariants.Remove(variant);
+        await context.SaveChangesAsync();
         return true;
     }
 }

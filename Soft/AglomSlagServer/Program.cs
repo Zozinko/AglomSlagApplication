@@ -9,13 +9,13 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 #region Databases
-builder.Services.AddDbContextPool<SlagModeContext>(opt =>
+builder.Services.AddPooledDbContextFactory<SlagModeContext>(opt =>
 {
     var connectionString = builder.Configuration.GetConnectionString("SlagModeContext");
     opt.UseNpgsql(connectionString);
 }, poolSize: 128);
 
-builder.Services.AddDbContextPool<AuthContext>(opt =>
+builder.Services.AddPooledDbContextFactory<AuthContext>(opt =>
 {
     var connectionString = builder.Configuration.GetConnectionString("AuthContext");
     opt.UseNpgsql(connectionString);
