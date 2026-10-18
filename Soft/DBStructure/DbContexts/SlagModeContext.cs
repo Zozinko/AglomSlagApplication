@@ -22,37 +22,35 @@ namespace DBStructure.DbContexts
             #endregion
 
             #region Relations
-            
-            // 1. CalcVariant -> BlastFurnace
+            // 1. CalcVariant -> BlastFurnace (RESTRICT)
             modelBuilder.Entity<CalcVariant>()
                 .HasOne(cv => cv.BlastFurnace)
                 .WithMany(bf => bf.CalcVariants)
                 .HasForeignKey(cv => cv.BfId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Restrict);
 
-            // 2. Связь CalcVariant (Parent -> Children)
+            // 2. Связь CalcVariant (Parent -> Children) (RESTRICT)
             modelBuilder.Entity<CalcVariant>()
                 .HasOne(cv => cv.Parent)
                 .WithMany(cv => cv.Children)
                 .HasForeignKey(cv => cv.ParentId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // 3. ComponentVariant -> CalcVariant
+            // 3. ComponentVariant -> CalcVariant (CASCADE)
             modelBuilder.Entity<ComponentVariant>()
                 .HasOne(cv => cv.CalcVariant)
                 .WithMany(c => c.ComponentVariants)
                 .HasForeignKey(cv => cv.VariantId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // 4. ComponentVariant -> ComponentGuide
+            // 4. ComponentVariant -> ComponentGuide (RESTRICT)
             modelBuilder.Entity<ComponentVariant>()
                 .HasOne(cv => cv.ComponentGuide)
-                .WithMany()
+                .WithMany(cg => cg.ComponentVariants)
                 .HasForeignKey(cv => cv.ComponentId)
                 .OnDelete(DeleteBehavior.Restrict);
-
             #endregion
-            
+
             #region Data
             // 1. Доменные печи
             modelBuilder.Entity<BlastFurnace>().HasData(

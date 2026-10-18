@@ -5,9 +5,8 @@ namespace AglomSlagServer.Queries;
 
 public class Query(SlagModeQueryService slagModeService)
 {
-
     public string Hello() => "Aglom GraphQL API";
-    
+
     public async Task<List<BlastFurnace>> GetBlastFurnaces() => 
         await slagModeService.GetBlastFurnacesAsync();
 

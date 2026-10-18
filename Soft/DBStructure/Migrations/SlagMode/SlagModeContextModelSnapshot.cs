@@ -466,7 +466,7 @@ namespace DBStructure.Migrations.SlagMode
                     b.HasOne("DBStructure.Entities.SlagMode.BlastFurnace", "BlastFurnace")
                         .WithMany("CalcVariants")
                         .HasForeignKey("BfId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("DBStructure.Entities.SlagMode.CalcVariant", "Parent")
@@ -482,7 +482,7 @@ namespace DBStructure.Migrations.SlagMode
             modelBuilder.Entity("DBStructure.Entities.SlagMode.ComponentVariant", b =>
                 {
                     b.HasOne("DBStructure.Entities.SlagMode.ComponentGuide", "ComponentGuide")
-                        .WithMany()
+                        .WithMany("ComponentVariants")
                         .HasForeignKey("ComponentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -507,6 +507,11 @@ namespace DBStructure.Migrations.SlagMode
                 {
                     b.Navigation("Children");
 
+                    b.Navigation("ComponentVariants");
+                });
+
+            modelBuilder.Entity("DBStructure.Entities.SlagMode.ComponentGuide", b =>
+                {
                     b.Navigation("ComponentVariants");
                 });
 #pragma warning restore 612, 618
