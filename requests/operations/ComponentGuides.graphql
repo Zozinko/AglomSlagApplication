@@ -1,0 +1,3 @@
+query ComponentGuides {
+  componentGuides { componentId componentName userId feContent siO2Content al2O3Content caOContent mgOContent sContent mnOContent tiO2Content }
+}

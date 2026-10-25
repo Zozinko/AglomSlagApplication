@@ -1,0 +1,103 @@
+{
+  "input": {
+    "coke": {
+      "consumption": 419.8,
+      "sulfur": 0.428,
+      "ashAmount": 12.7,
+      "ashCaOFraction": 7.8,
+      "ashSiO2Fraction": 48.1,
+      "ashAl2O3Fraction": 24.6,
+      "ashMgOFraction": 2
+    },
+    "iron": {
+      "si": 0.512,
+      "s": 0.016,
+      "mn": 0.2,
+      "c": 4.702,
+      "ti": 0,
+      "cr": 0,
+      "temp": 1450
+    },
+    "slag": {
+      "caO": 40.9,
+      "siO2": 36.56,
+      "tiO2": 0.01,
+      "al2O3": 24.6,
+      "mgO": 2
+    },
+    "components": [
+      {
+        "sourcename": "агломерат а/ф № 2 и 3",
+        "consumption": 441.5,
+        "fe": 58.5,
+        "siO2": 5.88,
+        "al2O3": 1.75,
+        "caO": 8.72,
+        "mgO": 1.63,
+        "s": 0.028,
+        "mnO": 0.19,
+        "tiO2": 0.24
+      },
+      {
+        "sourcename": "агломерат а/ф № 4",
+        "consumption": 485.9,
+        "fe": 58.3,
+        "siO2": 5.95,
+        "al2O3": 1.76,
+        "caO": 8.86,
+        "mgO": 1.64,
+        "s": 0.028,
+        "mnO": 0.19,
+        "tiO2": 0.24
+      },
+      {
+        "sourcename": "окатыши ССГПО",
+        "consumption": 568.7,
+        "fe": 62.6,
+        "siO2": 3.7,
+        "al2O3": 1.21,
+        "caO": 4.02,
+        "mgO": 0.99,
+        "s": 0.067,
+        "mnO": 0.16,
+        "tiO2": 0.32
+      },
+      {
+        "sourcename": "ЛебГОК",
+        "consumption": 54.7,
+        "fe": 65.7,
+        "siO2": 5.17,
+        "al2O3": 0.25,
+        "caO": 0.4,
+        "mgO": 0.22,
+        "s": 0.01,
+        "mnO": 0.05,
+        "tiO2": 0
+      },
+      {
+        "sourcename": "КачГОК",
+        "consumption": 54.1,
+        "fe": 60.4,
+        "siO2": 4.36,
+        "al2O3": 2.59,
+        "caO": 1.28,
+        "mgO": 2.9,
+        "s": 0.02,
+        "mnO": 0.23,
+        "tiO2": 2.66
+      },
+      {
+        "sourcename": "МихГОК",
+        "consumption": 48.5,
+        "fe": 63.3,
+        "siO2": 7.25,
+        "al2O3": 0.23,
+        "caO": 1.49,
+        "mgO": 0.25,
+        "s": 0.01,
+        "mnO": 0.04,
+        "tiO2": 0
+      }
+    ]
+  }
+}

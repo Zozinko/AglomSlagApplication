@@ -1,0 +1,3 @@
+mutation DeleteComponentGuide($componentId: Int!) {
+  deleteComponentGuide(componentId: $componentId)
+}

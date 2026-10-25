@@ -1,0 +1,11 @@
+mutation CalculateSlagMode($input: InputDataModelInput!) {
+  calculateSlagMode(input: $input) {
+    slagBasicity1 slagBasicity2 slagBasicity3 slagBasicityKulikov
+    slagOut materialCons totalMat
+    viscosity1400 viscosity1450 viscosity1500 viscosity1550
+    temp7Puaz gradient725 gradient14001500
+    slagTemperature slagTemperature25Puaz currSlagViscosity
+    balSlagMass caOBalSlagMass totalSInOre sActivity sDistribution sContentInCastIron castIronTemp
+    materialParts { key value }
+  }
+}

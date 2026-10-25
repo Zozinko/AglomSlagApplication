@@ -1,0 +1,10 @@
+mutation CalculateAglom($input: CalculateAglomInput!) {
+  calculateAglom(input: $input) {
+    id message
+    components {
+      componentName reportComponentOfCharge reportFe reportS reportP
+      reportFeO reportFe2O3 reportCaO reportSiO2 reportAl2O3 reportMgO
+      reportMnO reportTiO2 reportZn reportPMPP reportCaO_SiO2 reportOxideSum
+    }
+  }
+}

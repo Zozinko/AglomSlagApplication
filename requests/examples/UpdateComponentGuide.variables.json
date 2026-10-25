@@ -1,0 +1,15 @@
+{
+  "componentId": 0,
+  "input": {
+    "componentName": "docs-example-component",
+    "userId": -1,
+    "feContent": 58.5,
+    "siO2Content": 5.88,
+    "al2O3Content": 1.75,
+    "caOContent": 8.72,
+    "mgOContent": 1.63,
+    "sContent": 0.028,
+    "mnOContent": 0.19,
+    "tiO2Content": 0.24
+  }
+}

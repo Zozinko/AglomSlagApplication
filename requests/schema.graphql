@@ -1,0 +1,351 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+type Query {
+  hello: String!
+  blastFurnaces: [BlastFurnace!]! @cost(weight: "10")
+  componentGuides: [ComponentGuide!]! @cost(weight: "10")
+  calcVariants: [CalcVariant!]! @cost(weight: "10")
+  calcVariantById(variantId: Int!): CalcVariant @cost(weight: "10")
+}
+
+type Mutation {
+  calculateAglom(input: CalculateAglomInput!): AglomCalculationResult!
+  calculateSlagMode(input: InputDataModelInput!): OutputSlagMode!
+  addBlastFurnace(bfName: String!): BlastFurnace! @cost(weight: "10")
+  updateBlastFurnace(bfId: Int!, bfName: String!): BlastFurnace
+    @cost(weight: "10")
+  deleteBlastFurnace(bfId: Int!): Boolean! @cost(weight: "10")
+  addComponentGuide(input: ComponentGuideInput!): ComponentGuide!
+    @cost(weight: "10")
+  updateComponentGuide(componentId: Int!, input: ComponentGuideInput!): ComponentGuide
+    @cost(weight: "10")
+  deleteComponentGuide(componentId: Int!): Boolean! @cost(weight: "10")
+  addCalcVariant(
+    input: CalcVariantInput!
+    components: [ComponentVariantInput!]!
+  ): CalcVariant! @cost(weight: "10")
+  updateCalcVariant(
+    variantId: Int!
+    input: CalcVariantInput!
+    components: [ComponentVariantInput!]!
+  ): CalcVariant @cost(weight: "10")
+  deleteCalcVariant(variantId: Int!): Boolean! @cost(weight: "10")
+}
+
+type AglomCalculationResult {
+  id: Int!
+  message: String!
+  components: [AglomComponentResult!]!
+}
+
+type AglomComponentResult {
+  componentName: String!
+  reportComponentOfCharge: Float!
+  reportFe: Float!
+  reportS: Float!
+  reportP: Float!
+  reportFeO: Float!
+  reportFe2O3: Float!
+  reportCaO: Float!
+  reportSiO2: Float!
+  reportAl2O3: Float!
+  reportMgO: Float!
+  reportMnO: Float!
+  reportTiO2: Float!
+  reportZn: Float!
+  reportPMPP: Float!
+  reportCaO_SiO2: Float!
+  reportOxideSum: Float!
+}
+
+type BlastFurnace {
+  bfId: Int!
+  bfName: String!
+  calcVariants: [CalcVariant!]!
+}
+
+type CalcVariant {
+  variantId: Int!
+  bfId: Int!
+  calcDate: DateTime!
+  saveTime: DateTime!
+  variantName: String!
+  isImport: Boolean!
+  cokeConsumption: Float!
+  cokeSContent: Float!
+  cokeAshAmount: Float!
+  cokeAshCaOContent: Float!
+  cokeAshSiO2Content: Float!
+  cokeAshAl2O3Content: Float!
+  cokeAshMgOContent: Float!
+  slagCaOContent: Float!
+  slagSiO2Content: Float!
+  slagTiO2Content: Float!
+  slagAl2O3Content: Float!
+  slagMgOContent: Float!
+  ciTemperature: Float!
+  ciSiContent: Float!
+  ciSContent: Float!
+  ciMnContent: Float!
+  ciCContent: Float!
+  ciTiContent: Float!
+  ciCrContent: Float!
+  blastFurnace: BlastFurnace!
+  parentId: Int
+  parent: CalcVariant
+  children: [CalcVariant!]!
+  componentVariants: [ComponentVariant!]!
+}
+
+type ComponentGuide {
+  componentId: Int!
+  componentName: String!
+  userId: Int!
+  feContent: Float!
+  siO2Content: Float!
+  al2O3Content: Float!
+  caOContent: Float!
+  mgOContent: Float!
+  sContent: Float!
+  mnOContent: Float!
+  tiO2Content: Float!
+  componentVariants: [ComponentVariant!]!
+}
+
+type ComponentVariant {
+  variantId: Int!
+  componentId: Int!
+  componentName: String!
+  consumption: Float!
+  feContent: Float!
+  siO2Content: Float!
+  al2O3Content: Float!
+  caOContent: Float!
+  mgOContent: Float!
+  sContent: Float!
+  mnOContent: Float!
+  tiO2Content: Float!
+  calcVariant: CalcVariant!
+  componentGuide: ComponentGuide!
+}
+
+type KeyValuePairOfStringAndDouble {
+  key: String!
+  value: Float!
+}
+
+type OutputSlagMode {
+  slagBasicity1: Float!
+  slagBasicity2: Float!
+  slagBasicity3: Float!
+  slagBasicityKulikov: Float!
+  slagOut: Float!
+  materialCons: Float!
+  totalMat: Float!
+  viscosity1400: Float!
+  viscosity1450: Float!
+  viscosity1500: Float!
+  viscosity1550: Float!
+  temp7Puaz: Float!
+  gradient725: Float!
+  gradient14001500: Float!
+  slagTemperature: Float!
+  slagTemperature25Puaz: Float!
+  currSlagViscosity: Float!
+  balSlagMass: Float!
+  caOBalSlagMass: Float!
+  totalSInOre: Float!
+  sActivity: Float!
+  sDistribution: Float!
+  sContentInCastIron: Float!
+  castIronTemp: Float!
+  materialParts: [[KeyValuePairOfStringAndDouble!]!]!
+}
+
+input AglomParametersInput {
+  basicity: Float!
+  feOinAgl: Float!
+  fluxType: FluxType!
+}
+
+input CalculateAglomInput {
+  userId: Int!
+  compositionOfCokeAsh: CompositionOfCokeAshInput!
+  compositionOfCoke: CompositionOfCokeInput!
+  fluxAdditions: FluxAdditionsInput!
+  chargeComponents: [ChargeComponentInput!]!
+  aglomParameters: AglomParametersInput!
+  createPreset: Boolean!
+}
+
+input CalcVariantInput {
+  bfId: Int!
+  calcDate: DateTime!
+  variantName: String!
+  isImport: Boolean!
+  cokeConsumption: Float!
+  cokeSContent: Float!
+  cokeAshAmount: Float!
+  cokeAshCaOContent: Float!
+  cokeAshSiO2Content: Float!
+  cokeAshAl2O3Content: Float!
+  cokeAshMgOContent: Float!
+  slagCaOContent: Float!
+  slagSiO2Content: Float!
+  slagTiO2Content: Float!
+  slagAl2O3Content: Float!
+  slagMgOContent: Float!
+  ciTemperature: Float!
+  ciSiContent: Float!
+  ciSContent: Float!
+  ciMnContent: Float!
+  ciCContent: Float!
+  ciTiContent: Float!
+  ciCrContent: Float!
+}
+
+input ChargeComponentInput {
+  name: String!
+  weight: Float!
+  wet: Float!
+  pmpp: Float!
+  fe: Float!
+  feO: Float!
+  caO: Float!
+  siO2: Float!
+  mgO: Float!
+  al2O3: Float!
+  tiO2: Float!
+  s: Float!
+  p: Float!
+  cr: Float!
+  zn: Float!
+  mnO: Float!
+}
+
+input ComponentGuideInput {
+  componentName: String!
+  userId: Int!
+  feContent: Float!
+  siO2Content: Float!
+  al2O3Content: Float!
+  caOContent: Float!
+  mgOContent: Float!
+  sContent: Float!
+  mnOContent: Float!
+  tiO2Content: Float!
+}
+
+input ComponentVariantInput {
+  componentId: Int!
+  componentName: String!
+  consumption: Float!
+  feContent: Float!
+  siO2Content: Float!
+  al2O3Content: Float!
+  caOContent: Float!
+  mgOContent: Float!
+  sContent: Float!
+  mnOContent: Float!
+  tiO2Content: Float!
+}
+
+input CompositionOfCokeAshInput {
+  fe: Float!
+  caO: Float!
+  siO2: Float!
+  al2O3: Float!
+  mgO: Float!
+  p: Float!
+}
+
+input CompositionOfCokeInput {
+  consumption: Float!
+  percentAsh: Float!
+  percentSulfur: Float!
+  percentVolatiles: Float!
+}
+
+input FluxAdditionsInput {
+  limestone: FluxCompositionInput!
+  dolomite: FluxCompositionInput!
+}
+
+input FluxCompositionInput {
+  caO: Float!
+  siO2: Float!
+  al2O3: Float!
+  mgO: Float!
+}
+
+input InputDataCokeInput {
+  consumption: Float!
+  sulfur: Float!
+  ashAmount: Float!
+  ashCaOFraction: Float!
+  ashSiO2Fraction: Float!
+  ashAl2O3Fraction: Float!
+  ashMgOFraction: Float!
+}
+
+input InputDataIronInput {
+  si: Float!
+  s: Float!
+  mn: Float!
+  c: Float!
+  ti: Float!
+  cr: Float!
+  temp: Float!
+}
+
+input InputDataModelInput {
+  coke: InputDataCokeInput!
+  iron: InputDataIronInput!
+  slag: InputDataSlagInput!
+  components: [MaterialInput!]!
+}
+
+input InputDataSlagInput {
+  caO: Float!
+  siO2: Float!
+  tiO2: Float!
+  al2O3: Float!
+  mgO: Float!
+}
+
+input MaterialInput {
+  sourcename: String!
+  consumption: Float!
+  fe: Float!
+  siO2: Float!
+  al2O3: Float!
+  caO: Float!
+  mgO: Float!
+  s: Float!
+  mnO: Float!
+  tiO2: Float!
+}
+
+enum FluxType {
+  LIMESTONE
+  DOLOMITE
+}
+
+"The `DateTime` scalar type represents a date and time with time zone offset information."
+scalar DateTime
+  @specifiedBy(url: "https://scalars.graphql.org/chillicream/date-time.html")
+
+"The purpose of the `cost` directive is to define a `weight` for GraphQL types, fields, and arguments. Static analysis can use these weights when calculating the overall cost of a query or response."
+directive @cost(
+  "The `weight` argument defines what value to add to the overall cost for every appearance, or possible appearance, of a type, field, argument, etc."
+  weight: String!
+) on
+  | SCALAR
+  | OBJECT
+  | FIELD_DEFINITION
+  | ARGUMENT_DEFINITION
+  | ENUM
+  | INPUT_FIELD_DEFINITION

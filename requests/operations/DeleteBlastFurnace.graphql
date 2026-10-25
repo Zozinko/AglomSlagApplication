@@ -1,0 +1,3 @@
+mutation DeleteBlastFurnace($bfId: Int!) {
+  deleteBlastFurnace(bfId: $bfId)
+}

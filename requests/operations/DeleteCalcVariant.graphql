@@ -1,0 +1,3 @@
+mutation DeleteCalcVariant($variantId: Int!) {
+  deleteCalcVariant(variantId: $variantId)
+}

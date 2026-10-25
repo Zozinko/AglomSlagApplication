@@ -1,0 +1,3 @@
+mutation AddBlastFurnace($bfName: String!) {
+  addBlastFurnace(bfName: $bfName) { bfId bfName }
+}

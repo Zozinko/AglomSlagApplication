@@ -1,0 +1,3 @@
+query BlastFurnaces {
+  blastFurnaces { bfId bfName }
+}

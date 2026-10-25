@@ -1,0 +1,59 @@
+{
+  "input": {
+    "userId": -1,
+    "createPreset": false,
+    "compositionOfCokeAsh": {
+      "fe": 5,
+      "caO": 7.8,
+      "siO2": 48.1,
+      "al2O3": 24.6,
+      "mgO": 2,
+      "p": 0.1
+    },
+    "compositionOfCoke": {
+      "consumption": 50,
+      "percentAsh": 12.7,
+      "percentSulfur": 0.428,
+      "percentVolatiles": 1
+    },
+    "fluxAdditions": {
+      "limestone": {
+        "caO": 54,
+        "siO2": 1,
+        "al2O3": 0.5,
+        "mgO": 1
+      },
+      "dolomite": {
+        "caO": 30,
+        "siO2": 1,
+        "al2O3": 0.5,
+        "mgO": 20
+      }
+    },
+    "chargeComponents": [
+      {
+        "name": "example-ore",
+        "weight": 100,
+        "wet": 8,
+        "pmpp": 2,
+        "fe": 58.5,
+        "feO": 10,
+        "caO": 8.72,
+        "siO2": 5.88,
+        "mgO": 1.63,
+        "al2O3": 1.75,
+        "tiO2": 0.24,
+        "s": 0.028,
+        "p": 0.05,
+        "cr": 0,
+        "zn": 0,
+        "mnO": 0.19
+      }
+    ],
+    "aglomParameters": {
+      "basicity": 2,
+      "feOinAgl": 10,
+      "fluxType": "LIMESTONE"
+    }
+  }
+}

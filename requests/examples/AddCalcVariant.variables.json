@@ -1,0 +1,42 @@
+{
+  "input": {
+    "bfId": 0,
+    "calcDate": "2026-01-01T00:00:00Z",
+    "variantName": "docs-example-variant",
+    "isImport": false,
+    "cokeConsumption": 419.8,
+    "cokeSContent": 0.428,
+    "cokeAshAmount": 12.7,
+    "cokeAshCaOContent": 7.8,
+    "cokeAshSiO2Content": 48.1,
+    "cokeAshAl2O3Content": 24.6,
+    "cokeAshMgOContent": 2,
+    "slagCaOContent": 40.9,
+    "slagSiO2Content": 36.56,
+    "slagTiO2Content": 0.01,
+    "slagAl2O3Content": 24.6,
+    "slagMgOContent": 2,
+    "ciTemperature": 1450,
+    "ciSiContent": 0.512,
+    "ciSContent": 0.016,
+    "ciMnContent": 0.2,
+    "ciCContent": 4.702,
+    "ciTiContent": 0,
+    "ciCrContent": 0
+  },
+  "components": [
+    {
+      "componentId": 0,
+      "componentName": "docs-example-component",
+      "consumption": 1653.4,
+      "feContent": 58.5,
+      "siO2Content": 5.88,
+      "al2O3Content": 1.75,
+      "caOContent": 8.72,
+      "mgOContent": 1.63,
+      "sContent": 0.028,
+      "mnOContent": 0.19,
+      "tiO2Content": 0.24
+    }
+  ]
+}
