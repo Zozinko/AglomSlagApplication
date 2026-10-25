@@ -434,3 +434,4 @@ FodyWeavers.xsd
 # Official VS Code C# Dev Kit Extension exclusion
 #*.lscache
 Soft/DBStructure/DBStructure.slnx
+/baseData
