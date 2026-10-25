@@ -1,5 +1,7 @@
 # Запросы к API и подключение
 
+Автоматические HTTP-тесты всех описанных операций: [tests/README.md](../tests/README.md). Запуск из корня: `./tests/Run-ApiTests.ps1`; стенд использует отдельную временную PostgreSQL и не изменяет данные основного Compose.
+
 Эта папка находится рядом с `Soft` и описывает все **16 корневых операций** API: 5 query и 11 mutation. Фактический контракт со всеми полями ответов, input-типами и nullability: [schema.graphql](schema.graphql). Архитектура и инструкции для изменения кода: [../arcitecture.md](../arcitecture.md). Итоги живой проверки: [verification.md](verification.md).
 
 ## Запуск и адреса
