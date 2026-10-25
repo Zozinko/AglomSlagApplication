@@ -1,22 +1,18 @@
 #!/bin/bash
-set -e # Остановить выполнение при любой ошибке
+set -e
 
-echo "🔄 Запуск миграций через dotnet-ef CLI..."
-
-# Миграция для SlagModeContext
-echo "👉 Применение миграций для SlagModeContext..."
+# Program.cs resolves CONNECTION_SLAG/CONNECTION_AUTH or the shared DB_* variables.
+# Do not put secrets in CLI arguments (process lists) or shell trace output.
+echo "Applying migrations for SlagModeContext..."
 dotnet ef database update \
     --context SlagModeContext \
     --project DBStructure \
-    --startup-project AglomSlagServer \
-    --connection "$CONNECTION_SLAG"
+    --startup-project AglomSlagServer
 
-# Миграция для AuthContext
-echo "👉 Применение миграций для AuthContext..."
+echo "Applying migrations for AuthContext..."
 dotnet ef database update \
     --context AuthContext \
     --project DBStructure \
-    --startup-project AglomSlagServer \
-    --connection "$CONNECTION_AUTH"
+    --startup-project AglomSlagServer
 
-echo "✅ Все миграции успешно применены!"
+echo "All migrations applied."

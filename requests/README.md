@@ -2,19 +2,19 @@
 
 Автоматические HTTP-тесты всех описанных операций: [tests/README.md](../tests/README.md). Запуск из корня: `./tests/Run-ApiTests.ps1`; стенд использует отдельную временную PostgreSQL и не изменяет данные основного Compose.
 
-Эта папка находится рядом с `Soft` и описывает все **16 корневых операций** API: 5 query и 11 mutation. Фактический контракт со всеми полями ответов, input-типами и nullability: [schema.graphql](schema.graphql). Архитектура и инструкции для изменения кода: [../arcitecture.md](../arcitecture.md). Итоги живой проверки: [verification.md](verification.md).
+Эта папка находится рядом с `Soft` и описывает все **16 корневых операций** API: 5 query и 11 mutation. Фактический контракт со всеми полями ответов, input-типами и nullability: [schema.graphql](schema.graphql). Архитектура и инструкции для изменения кода: [../arcitecture.md](../arcitecture.md). Итоги живой проверки: [verification.md](../tasks/api-tests/verification.md).
 
 ## Запуск и адреса
 
 Из корня репозитория:
 
 ```powershell
-docker compose -f Soft/Docker-compose.yml build --no-cache
-docker compose -f Soft/Docker-compose.yml up -d
-docker compose -f Soft/Docker-compose.yml ps -a
+docker compose --env-file Soft/.env -f Soft/Docker-compose.yml build --no-cache
+docker compose --env-file Soft/.env -f Soft/Docker-compose.yml up -d
+docker compose --env-file Soft/.env -f Soft/Docker-compose.yml ps -a
 ```
 
-Ожидается: PostgreSQL healthy, migrator Exited (0), API Up. Для диагностики: `docker compose -f Soft/Docker-compose.yml logs --tail 100 migrator graphql-api`.
+Ожидается: PostgreSQL healthy, migrator Exited (0), API Up. Для диагностики: `docker compose --env-file Soft/.env -f Soft/Docker-compose.yml logs --tail 100 migrator graphql-api`.
 
 | Клиент | Endpoint |
 |---|---|
@@ -33,14 +33,14 @@ API сейчас **не требует токен, cookie или логин**: �
 |---|---|
 | Тип | PostgreSQL 16 |
 | Host / Port | `localhost` / `5432` |
-| User / Password | `postgres` / `postgres` (локальные значения из Compose) |
+| User / Password | `DB_USER` / `DB_PASSWORD` из локального `.env` |
 | Databases | `SlagMode` и `Auth` — две разные БД |
 | Schema | `public` |
 | Внутри Docker-сети | host `postgres`, port `5432` |
 
 SQL с точными именами: `SELECT * FROM "BlastFurnaces";`, `SELECT * FROM "CalcVariants";`, `SELECT * FROM "ComponentsGuide";`, `SELECT * FROM "ComponentVariants";`. В базе `Auth`: `SELECT "UserId", "UserName", "UserEmail" FROM "Users";`. История EF — `"__EFMigrationsHistory"` в каждой базе.
 
-В исследованной копии `.env` отсутствует. Текущий Compose содержит строки подключения напрямую и не использует `env_file` или `${...}`. Для других доступов заменить/переопределить `ConnectionStrings__SlagModeContext`, `ConnectionStrings__AuthContext` у API и `CONNECTION_SLAG`, `CONNECTION_AUTH` у migrator. При запуске в Development используются строки из `Soft/AglomSlagServer/appsettings.Development.json`.
+Перед запуском заполнить единый `Soft/.env` по [инструкции конфигурации](../docs/configuration.md). JSON, Compose и Dockerfile не содержат паролей. Compose требует `DB_USER`/`DB_PASSWORD`; API/migrator строят строки через Npgsql и сохраняют совместимость с прежними именами полных строк. Development-загрузчик читает `.env`, используя `localhost` с хоста; внутри Compose используется `postgres`. Смена пароля существующей роли выполняется отдельно от изменения env-файла, без удаления volume.
 
 ## Формат запроса и обработка ответа
 

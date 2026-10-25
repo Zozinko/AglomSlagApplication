@@ -4,7 +4,7 @@
 
 ## С чего начать
 
-1. Прочитать этот файл и [requests/README.md](requests/README.md).
+1. Прочитать этот файл, [правила ведения репозитория](docs/repository-management.md) и [requests/README.md](requests/README.md). Правила размещения задач, журналов и единственного `.env` обязательны и для последующих работ.
 2. Проверить `git status --short` и локальные инструкции `AGENTS.md`, если они появятся. На момент исследования их нет.
 3. Найти нужный маршрут в `Soft/AglomSlagServer/GraphQL/Queries/Query.cs` или `GraphQL/Mutations/Mutation.cs`.
 4. Сопоставить контракт с [requests/schema.graphql](requests/schema.graphql), полученным от работающего API. Схема выводится из C# автоматически: публичное свойство сущности может стать частью API.
@@ -12,10 +12,21 @@
 
 В репозитории нет фронтенда, отдельных REST-контроллеров, .NET-тестовых проектов и CI-конфигурации. Автоматические HTTP-тесты всех 16 GraphQL-операций находятся в `tests` и запускаются встроенным runner Node.js. Все исходники приложения находятся в `Soft` (именно с заглавной `S`; важно для Linux).
 
+Планы: [backend](tasks/TODO.md), [frontend](tasks/TODO_Frontend.md). Настройка общего `.env` и запуск: [docs/configuration.md](docs/configuration.md). Журналы сохранять только в `logs/`, рабочие материалы задач — в `tasks/<ID>/` по [правилам ведения репозитория](docs/repository-management.md).
+
 ## Карта репозитория
 
 ```text
 arcitecture.md                         # эта карта и инструкции по изменению кода
+docs/                                  # постоянные инструкции по настройке и ведению проекта
+tasks/
+  TODO.md                              # backend-план
+  TODO_Frontend.md                     # frontend-план
+  <ID>/                                # протоколы и рабочие материалы задачи
+  <ID>/local/                          # игнорируемые временные и скачанные файлы
+logs/                                  # все журналы .log, включая last-run.log
+Soft/.env                              # единственные рабочие настройки Docker и IDE (вне Git)
+Soft/.env.example                      # безопасный шаблон
 requests/                              # подключение, SDL, операции и JSON-примеры
 tests/
   README.md                            # запуск, покрытие и границы проверок
@@ -31,7 +42,6 @@ tests/
     error-contract.test.mjs             # публичные ошибки Production
     calculation-roundtrip.test.mjs      # расчёт после сохранения float
   infrastructure/runtime.test.mjs       # SQL, миграции, restart и отказы запуска
-  bugfix-verification.md                # протокол и ограничения багфиксов
 Soft/
   Docker-compose.yml                   # оркестрация трёх контейнеров
   .dockerignore
@@ -44,7 +54,7 @@ Soft/
     GraphQL/Types/Outputs/             # отдельные DTO шлака и ограниченные ссылки
     Services/                          # адаптеры расчётов и CRUD
     Errors/                            # безопасные публичные коды и фильтр GraphQL
-    Startup/                           # обязательная проверка обеих БД
+    Startup/                           # env-загрузчик, конфигурация и проверка обеих БД
     appsettings*.json
     Properties/launchSettings.json
   DBStructure/
@@ -103,13 +113,13 @@ flowchart TD
 Команды из корня репозитория:
 
 ```powershell
-docker compose -f Soft/Docker-compose.yml build --no-cache
-docker compose -f Soft/Docker-compose.yml up -d
-docker compose -f Soft/Docker-compose.yml ps -a
-docker compose -f Soft/Docker-compose.yml logs --tail 100 migrator graphql-api
+docker compose --env-file Soft/.env -f Soft/Docker-compose.yml build --no-cache
+docker compose --env-file Soft/.env -f Soft/Docker-compose.yml up -d
+docker compose --env-file Soft/.env -f Soft/Docker-compose.yml ps -a
+docker compose --env-file Soft/.env -f Soft/Docker-compose.yml logs --tail 100 migrator graphql-api
 ```
 
-Из `Soft` эквивалентны `docker-compose build --no-cache` и `docker-compose up -d`. При автоматизации лучше явно указывать файл с его настоящим регистром.
+Перед запуском заполнить единый `Soft/.env` по [configuration.md](docs/configuration.md). Все команды Compose выполнять с явным `--env-file`; рабочие значения не хранить в JSON/Dockerfile.
 
 | Контейнер / сервис | Назначение | Адреса и состояние |
 |---|---|---|
@@ -119,9 +129,9 @@ docker compose -f Soft/Docker-compose.yml logs --tail 100 migrator graphql-api
 
 Именованный volume `postgres_data` хранит данные; Compose добавляет префикс проекта (обычно `soft_postgres_data`). `PGDATA=/var/lib/postgresql/data/pgdata`. Init SQL создаёт `"SlagMode"` и `"Auth"` только при первом запуске пустого каталога PostgreSQL. Обычные build/up не очищают данные. `down -v` удаляет volume и не является способом штатного обновления.
 
-Compose содержит локальные настройки `postgres/postgres`, БД `SlagMode` и `Auth`. Файл `.env` в исследованном рабочем дереве отсутствует; в Compose нет ссылок `${...}` или `env_file`. Поэтому создание `.env` само по себе не подменит зашитые строки подключения. При иных доступах нужны явные environment/Compose overrides.
+Compose требует `DB_USER` и `DB_PASSWORD` из `.env`/окружения без запасного пароля. API/migrator получают `DB_HOST=postgres`, `DB_PORT=5432`, строят строки через NpgsqlConnectionStringBuilder и используют базы `SlagMode`/`Auth`. PostgreSQL получает те же доступы как `POSTGRES_USER`/`POSTGRES_PASSWORD`. Все три build context — `Soft`; env-файлы, включая шаблоны, исключены из Docker. Настройка и ротация существующей роли: [configuration.md](docs/configuration.md).
 
-`Program.cs` регистрирует две `AddPooledDbContextFactory<T>` с пулом 128. Параметры читаются через `GetConnectionString("SlagModeContext")` и `GetConnectionString("AuthContext")`. CRUD создаёт и освобождает контекст на каждый метод (`await using`); не делить один `DbContext` между параллельными резолверами.
+`Program.cs` регистрирует две `AddPooledDbContextFactory<T>` с пулом 128. Параметры разрешает `Startup/DatabaseConfiguration`: прежние `ConnectionStrings__SlagModeContext` / `ConnectionStrings__AuthContext`, затем `CONNECTION_SLAG` / `CONNECTION_AUTH`, затем обязательные `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`. CRUD создаёт и освобождает контекст на каждый метод (`await using`); не делить один `DbContext` между параллельными резолверами.
 
 Scoped-сервисы: `AglomCalculationService`, `AglomCalculatorService` (из DLL), `SlagModeQueryService`, `SlagModeCalculationService`. Затем регистрируются корневые GraphQL-типы и `app.MapGraphQL()` без специального пути. `IncludeExceptionDetails` включён только в Development. `PublicErrorFilter` получает зависимости из application provider через factory Hot Chocolate; в Production возвращает только безопасный код и сообщение, в Development дополнительно — тип исключения и SQLSTATE без SQL/стека/сырого сообщения. Диагностика провайдеров, способная раскрыть строки подключения и SQL, отключена; обычный серверный вывод содержит код, тип и SQLSTATE.
 
@@ -135,7 +145,7 @@ dotnet build Soft/AglomSlagServer/AglomSlagServer.slnx -c Release --no-restore
 dotnet run --project Soft/AglomSlagServer --launch-profile http
 ```
 
-Профиль `http`: `http://localhost:5093/graphql`, `Development`; профиль `https` добавляет `https://localhost:7165/graphql`. Только `appsettings.Development.json` содержит локальные строки подключения. В Production их передаёт Compose через `ConnectionStrings__SlagModeContext` / `ConnectionStrings__AuthContext`; мигратор использует отдельные `CONNECTION_SLAG` / `CONNECTION_AUTH`. Переменные окружения ASP.NET переопределяют JSON. Лог сообщает фактически открытые адреса.
+Профиль `http`: `http://localhost:5093/graphql`, `Development`; профиль `https` добавляет `https://localhost:7165/graphql`. JSON не содержит секретов. В Development `Startup/LocalEnvironment` загружает единый `Soft/.env` в environment процесса; уже заданные переменные имеют приоритет. Другой путь задаётся через `AGLOMSLAG_ENV_FILE`. В Production env-файлы не читаются: Compose передаёт `DB_*` через environment. Прежние имена полных строк поддерживаются API и migrator. Лог сообщает фактически открытые адреса.
 
 API Dockerfile выполняет restore решения, publish Release и перенос в ASP.NET runtime, устанавливает `libgfortran5`, `libz-dev`, `libc6`. Сохранять нативные зависимости при изменении образа. Мигратор собирает проекты при выполнении `dotnet ef`; `entrypoint.sh` должен оставаться с LF и исполняемым в Linux. `.dockerignore` исключает `bin`, `obj`, IDE-каталоги и Markdown; документация вне `Soft` не попадает в build context.
 
@@ -190,7 +200,8 @@ Seed задан через `HasData`: печь `-1` (`TestBF`), справочн
 ```powershell
 dotnet ef migrations add MeaningfulChange --context SlagModeContext --project Soft/DBStructure --startup-project Soft/AglomSlagServer --output-dir Migrations/SlagMode
 # Для Auth: --context AuthContext --output-dir Migrations/Auth
-dotnet ef database update --context SlagModeContext --project Soft/DBStructure --startup-project Soft/AglomSlagServer --connection "Host=localhost;Port=5432;Database=SlagMode;Username=postgres;Password=postgres"
+$env:ASPNETCORE_ENVIRONMENT = 'Development' # загрузить .env
+dotnet ef database update --context SlagModeContext --project Soft/DBStructure --startup-project Soft/AglomSlagServer
 ```
 
 Для этих команд выполнить `dotnet tool restore` из корня: manifest закрепляет `dotnet-ef 10.0.12`. Дать startup-проекту корректные строки подключения для обоих контекстов (например, `ASPNETCORE_ENVIRONMENT=Development`). Не переписывать применённую историю ради изменения модели. Проверять Up/Down и snapshot; миграции для двух контекстов не смешивать. Единственный автоматический механизм миграций — Compose migrator.
@@ -261,7 +272,7 @@ Solver создаёт `SlagMode`, заполняет `BaseChugun`, `BaseSlag`, `
 1. Собрать решение или Docker-образы; для изменения БД проверить migrator на существующей базе и на отдельной чистой тестовой базе/volume.
 2. Проверить `hello`, чтение БД, отсутствующий ID (`null/false`), новый/изменённый контракт, нужный расчёт с полным selection set.
 3. Для CRUD создать свои записи, проверить add/read/update/delete и блокировку удаления используемых справочников, затем убрать только созданные записи. Не использовать seed для разрушительных проверок.
-4. Запустить `./tests/Run-ApiTests.ps1` (Docker Linux containers, Compose v2, PowerShell, Node.js 22+). Runner собирает текущий API и применяет миграции к отдельной PostgreSQL в `tmpfs`, проверяет все операции через HTTP, затем удаляет только свой тестовый стенд. SDK .NET 10 на хосте не требуется. При изменении поведения обновить соответствующие тесты; для расчётного изменения добавить целевые регрессионные тесты с допуском для чисел, когда есть согласованный эталон.
+4. Запустить `./tests/Run-ApiTests.ps1` (Docker Linux containers, Compose v2, PowerShell, Node.js 22+, ASP.NET Core runtime .NET 10 для host-проверки). Runner собирает текущий API и применяет миграции к отдельной PostgreSQL в `tmpfs`, проверяет все операции через HTTP, затем удаляет только свой тестовый стенд. SDK .NET 10 на хосте не требуется. При изменении поведения обновить соответствующие тесты; для расчётного изменения добавить целевые регрессионные тесты с допуском для чисел, когда есть согласованный эталон.
 5. Обновить `requests/schema.graphql`, `.graphql`, примеры JSON и документацию при изменении API; проверить `git diff --check`, состав diff и отсутствие учётных данных/сгенерированных build-файлов.
 
 ## Автоматические тесты API
@@ -274,8 +285,8 @@ Solver создаёт `SlagMode`, заполняет `BaseChugun`, `BaseSlag`, `
 
 Прежняя characterization-проверка `HC0018` заменена регрессией успешного ответа со старой/новой печью. `persistence.test.mjs` проверяет сохранённое время и навигации; `error-contract.test.mjs` — безопасные публичные ошибки; `calculation-roundtrip.test.mjs` — сохранность входов с IEEE-754 допуском и расчёт после сохранения. Последовательный `infrastructure/runtime.test.mjs` проверяет SQL, restart, обновление прежней схемы, snapshot, отказ подключения и Development. Проверки расчётов не являются предметной верификацией закрытых DLL и не используют наблюдавшиеся числа как утверждённые эталоны.
 
-Исторический первый набор из 26 тестов описан в `requests/verification.md`. Текущий протокол багфиксов и границы выполненного: [tests/bugfix-verification.md](tests/bugfix-verification.md). Статус определяется последним завершённым прогоном, а не одним успешным build.
+Исторический первый набор из 26 тестов описан в `tasks/api-tests/verification.md`. Текущий протокол багфиксов и границы выполненного: [протокол багфиксов](tasks/bugfixes/verification.md). Статус определяется последним завершённым прогоном, а не одним успешным build.
 
 ## Проверка документации на живом стенде
 
-Результаты, окружение и ограничения фактической проверки записаны в [requests/verification.md](requests/verification.md). Этот раздел не заменяет повторную проверку после изменения кода. SDL нужно обновлять от собранного текущего проекта; сохранённый файл — снимок контракта, не источник генерации сервера.
+Результаты, окружение и ограничения фактической проверки записаны в [первичная проверка API](tasks/api-tests/verification.md). Этот раздел не заменяет повторную проверку после изменения кода. SDL нужно обновлять от собранного текущего проекта; сохранённый файл — снимок контракта, не источник генерации сервера.

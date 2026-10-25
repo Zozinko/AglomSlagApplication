@@ -13,7 +13,9 @@ const docker = (...args) => execFileSync('docker', [...prefix, ...args], { encod
 const sql = (query, database = 'SlagMode') => execFileSync('docker', [...prefix, 'exec', '-T', 'postgres', 'psql', '-X', '-A', '-t', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', database], {
   input: query, encoding: 'utf8', timeout: 30_000,
 }).trim();
-const connection = database => `Host=postgres;Database=${database};Username=postgres;Password=api-tests-only;Timeout=2`;
+const password = process.env.API_TEST_DB_PASSWORD;
+assert.ok(password);
+const connection = (database, credential = password) => `Host=postgres;Database=${database};Username=postgres;Password="${credential.replaceAll('"', '""')}";Timeout=2`;
 const efArgs = ['--context', 'SlagModeContext', '--project', 'DBStructure', '--startup-project', 'AglomSlagServer'];
 const ef = (...args) => docker('run', '--rm', '--no-deps', '--entrypoint', 'dotnet', 'migrator', 'ef', ...args);
 
@@ -122,13 +124,14 @@ function failStartup(overrides) {
   assert.notEqual(result.status, 0, 'Invalid startup must fail');
   const logs = result.stdout + result.stderr;
   assert.doesNotMatch(logs, /Now listening on:|Подключение к базам данных успешно/);
-  assert.doesNotMatch(logs, /api-tests-only|definitely-wrong-password|Password=|Username=|Host=/i);
+  assert.ok(!logs.includes(password), 'Logs must not contain the test credential');
+  assert.doesNotMatch(logs, /definitely-wrong-password|Password=|Username=|Host=/i);
   return logs;
 }
 
 test('BUG-06/07: wrong password for either DB prevents startup without revealing credentials', () => {
   for (const database of ['SlagMode', 'Auth']) {
-    const logs = failStartup({ [`ConnectionStrings__${database}Context`]: connection(database).replace('api-tests-only', 'definitely-wrong-password') });
+    const logs = failStartup({ [`ConnectionStrings__${database}Context`]: connection(database, 'definitely-wrong-password') });
     assert.match(logs, new RegExp(`${database}Context`));
   }
 });
@@ -140,12 +143,13 @@ test('BUG-06/07: malformed connection configuration also fails without echoing i
 });
 
 test('BUG-06: migrator exits nonzero on a failed database connection', () => {
-  const result = spawnSync('docker', [...prefix, 'run', '--rm', '--no-deps', '-e', `CONNECTION_SLAG=${connection('SlagMode').replace('api-tests-only', 'definitely-wrong-password')}`, 'migrator'], {
+  const result = spawnSync('docker', [...prefix, 'run', '--rm', '--no-deps', '-e', `CONNECTION_SLAG=${connection('SlagMode', 'definitely-wrong-password')}`, 'migrator'], {
     encoding: 'utf8', timeout: 90_000, maxBuffer: 4 * 1024 * 1024,
   });
   assert.equal(result.error, undefined, result.error?.message);
   assert.notEqual(result.status, 0);
-  assert.doesNotMatch(result.stdout + result.stderr, /definitely-wrong-password|api-tests-only/);
+  assert.ok(!(result.stdout + result.stderr).includes(password));
+  assert.doesNotMatch(result.stdout + result.stderr, /definitely-wrong-password/);
 });
 
 test('BUG-06/07: Development diagnostics remain safe and actual alternate port is logged', async () => {

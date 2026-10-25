@@ -10,6 +10,10 @@
 *.userosscache
 *.sln.docstates
 *.env
+.env
+.env.*
+!/Soft/.env.example
+/tasks/*/local/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -435,3 +439,8 @@ FodyWeavers.xsd
 #*.lscache
 Soft/DBStructure/DBStructure.slnx
 /baseData
+
+# Keep the log directory, but never version its generated contents.
+!/logs/
+/logs/*
+!/logs/.gitkeep

@@ -5,7 +5,9 @@ services:
     image: postgres:16.15-alpine@sha256:f4610795587492cd4fb887c2dc3de301b813278bb6f616992061141b5f15ac36
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: api-tests-only
+      POSTGRES_PASSWORD: ${API_TEST_DB_PASSWORD:?Use Run-ApiTests.ps1}
+    ports:
+      - '127.0.0.1::5432'
     tmpfs:
       - /var/lib/postgresql/data
     volumes:
@@ -20,8 +22,10 @@ services:
       context: ../Soft
       dockerfile: docker/migrator/Dockerfile
     environment:
-      CONNECTION_SLAG: Host=postgres;Database=SlagMode;Username=postgres;Password=api-tests-only
-      CONNECTION_AUTH: Host=postgres;Database=Auth;Username=postgres;Password=api-tests-only
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      DB_USER: postgres
+      DB_PASSWORD: ${API_TEST_DB_PASSWORD:?Use Run-ApiTests.ps1}
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,8 +36,10 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__SlagModeContext: Host=postgres;Database=SlagMode;Username=postgres;Password=api-tests-only
-      ConnectionStrings__AuthContext: Host=postgres;Database=Auth;Username=postgres;Password=api-tests-only
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      DB_USER: postgres
+      DB_PASSWORD: ${API_TEST_DB_PASSWORD:?Use Run-ApiTests.ps1}
     ports:
       - '127.0.0.1::8080'
     depends_on:

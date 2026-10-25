@@ -2,11 +2,18 @@
 param([switch]$UpdateSchema)
 
 $ErrorActionPreference = 'Stop'
+$logDirectory = Join-Path $PSScriptRoot '../logs'
+New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+Start-Transcript -LiteralPath (Join-Path $logDirectory 'last-run.log') -Force | Out-Null
 $testProject = 'aglom-api-tests-' + [guid]::NewGuid().ToString('N').Substring(0, 12)
 $composeFile = Join-Path $PSScriptRoot 'compose.api-tests.yml'
 $previousUrl = $env:GRAPHQL_TEST_URL
 $previousProject = $env:API_TEST_COMPOSE_PROJECT
 $previousCompose = $env:API_TEST_COMPOSE_FILE
+$previousPassword = $env:API_TEST_DB_PASSWORD
+# Ephemeral credentials exercise literal special characters and Npgsql quoting.
+$env:API_TEST_DB_PASSWORD = [guid]::NewGuid().ToString('N') + '$#; with spaces "quotes"'
+$contextProbe = Join-Path $PSScriptRoot "../Soft/AglomSlagServer/.env.$testProject"
 $testExitCode = 1
 
 function Invoke-TestCompose {
@@ -16,6 +23,7 @@ function Invoke-TestCompose {
 }
 
 try {
+    [System.IO.File]::WriteAllText($contextProbe, "DB_PASSWORD='" + $env:API_TEST_DB_PASSWORD + "'`n")
     & node --version
     if ($LASTEXITCODE -ne 0) { throw 'Node.js 22 or newer is required.' }
     Invoke-TestCompose -ComposeArguments @('up', '-d', '--build')
@@ -51,6 +59,10 @@ try {
     if ($testExitCode -eq 0) {
         $env:API_TEST_COMPOSE_PROJECT = $testProject
         $env:API_TEST_COMPOSE_FILE = $composeFile
+        & node --test --test-reporter=spec (Join-Path $PSScriptRoot 'infrastructure/secrets.test.mjs')
+        $testExitCode = $LASTEXITCODE
+    }
+    if ($testExitCode -eq 0) {
         & node --test --test-reporter=spec (Join-Path $PSScriptRoot 'infrastructure/runtime.test.mjs')
         $testExitCode = $LASTEXITCODE
     }
@@ -67,5 +79,8 @@ try {
     $env:API_TEST_COMPOSE_FILE = $previousCompose
     & docker compose -p $testProject -f $composeFile down --volumes --remove-orphans --rmi local
     if ($LASTEXITCODE -ne 0) { $testExitCode = 1 }
+    Remove-Item -LiteralPath $contextProbe -Force -ErrorAction SilentlyContinue
+    $env:API_TEST_DB_PASSWORD = $previousPassword
+    Stop-Transcript | Out-Null
 }
 exit $testExitCode

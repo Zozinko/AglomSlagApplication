@@ -9,6 +9,23 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+string slagConnection;
+string authConnection;
+try
+{
+    LocalEnvironment.Load(builder, args);
+    slagConnection = DatabaseConfiguration.Connection(builder.Configuration, "SlagModeContext", "CONNECTION_SLAG", "SlagMode");
+    authConnection = DatabaseConfiguration.Connection(builder.Configuration, "AuthContext", "CONNECTION_AUTH", "Auth");
+}
+catch (Exception exception) when (exception is InvalidOperationException or IOException or UnauthorizedAccessException)
+{
+    // Only our own validation messages are safe to print; never echo file contents/provider errors.
+    Console.Error.WriteLine(exception is InvalidOperationException
+        ? exception.Message : "Configuration error: local env file cannot be read.");
+    Environment.ExitCode = 1;
+    return;
+}
+
 // Provider failure logs can contain SQL, credentials or arbitrary exception messages.
 // Application diagnostics use only public reason codes, types and SQLSTATE.
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.None);
@@ -18,10 +35,17 @@ builder.Logging.AddFilter("Microsoft.AspNetCore.Diagnostics", LogLevel.None);
 builder.Logging.AddFilter("Microsoft.Extensions.Hosting.Internal.Host", LogLevel.None);
 
 builder.Services.AddPooledDbContextFactory<SlagModeContext>(opt =>
-    opt.UseNpgsql(builder.Configuration.GetConnectionString("SlagModeContext"))
+    // Creating/migrating a durable Docker volume may exceed the normal query timeout.
+    opt.UseNpgsql(slagConnection, npgsql =>
+    {
+        if (EF.IsDesignTime) npgsql.CommandTimeout(180);
+    })
         .EnableSensitiveDataLogging(false).EnableDetailedErrors(false), poolSize: 128);
 builder.Services.AddPooledDbContextFactory<AuthContext>(opt =>
-    opt.UseNpgsql(builder.Configuration.GetConnectionString("AuthContext"))
+    opt.UseNpgsql(authConnection, npgsql =>
+    {
+        if (EF.IsDesignTime) npgsql.CommandTimeout(180);
+    })
         .EnableSensitiveDataLogging(false).EnableDetailedErrors(false), poolSize: 128);
 
 builder.Services.AddScoped<AglomCalculationService>();
