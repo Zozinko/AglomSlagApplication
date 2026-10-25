@@ -1,4 +1,4 @@
-﻿using DBStructure.Entities.SlagMode;
+using DBStructure.Entities.SlagMode;
 using Microsoft.EntityFrameworkCore;
 
 namespace DBStructure.DbContexts
@@ -20,6 +20,10 @@ namespace DBStructure.DbContexts
             modelBuilder.Entity<ComponentGuide>().HasKey(cg => cg.ComponentId);
             modelBuilder.Entity<ComponentVariant>().HasKey(cv => new { cv.VariantId, cv.ComponentId });
             #endregion
+
+            modelBuilder.Entity<CalcVariant>().Property(v => v.SaveTime).HasColumnType("timestamp with time zone");
+            // Historical variants preserve the former zero-sulfur assumption; this is not a measured value.
+            modelBuilder.Entity<CalcVariant>().Property(v => v.SlagSContent).HasDefaultValue(0f);
 
             #region Relations
             // 1. CalcVariant -> BlastFurnace (RESTRICT)
@@ -80,7 +84,7 @@ namespace DBStructure.DbContexts
                     VariantId = -1,
                     BfId = -1,
                     CalcDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-                    SaveTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    SaveTime = (DateTime?)null,
                     VariantName = "-1st variant",
                     IsImport = false,
                     // Coke
@@ -92,6 +96,7 @@ namespace DBStructure.DbContexts
                     CokeAshAl2O3Content = 24.6f,
                     CokeAshMgOContent = 2f,
                     // Slag
+                    SlagSContent = 0f,
                     SlagCaOContent = 40.9f,
                     SlagSiO2Content = 36.56f,
                     SlagTiO2Content = 0.01f,

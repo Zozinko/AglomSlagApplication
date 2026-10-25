@@ -92,6 +92,9 @@ test('calculateSlagMode returns finite selected results and input-derived materi
 
   assertFiniteFields(result, SLAG_NUMERIC_FIELDS, 'calculateSlagMode');
   assertMaterialParts(result, inputMaterials);
+  assert.equal(result.slagOut, result.balSlagMass, 'both documented aliases map to MassOfOxSlagSum');
+  assert.notEqual(result.caOBalSlagMass, result.balSlagMass,
+    'the CaO balance uses UdWeight and differs on this integration fixture');
 });
 
 test('calculateSlagMode rejects empty, zero-total, and negative-total material lists during execution', async (t) => {
@@ -126,4 +129,80 @@ test('calculateSlagMode rejects a null components list during GraphQL input coer
   assert.equal(response.body.data, undefined);
   assert.ok(response.body.errors.every((error) => error.path === undefined),
     'a null non-null GraphQL list should fail before resolver execution');
+});
+
+test('castIronTemp echoes 1450 and 1500 while temperature-independent outputs remain stable', async () => {
+  const results = [];
+  for (const temp of [1450, 1500]) {
+    const variables = example('CalculateSlagMode');
+    variables.input.iron.temp = temp;
+    const result = (await operation('CalculateSlagMode', variables)).calculateSlagMode;
+    assert.equal(result.castIronTemp, temp);
+    assert.ok(Number.isFinite(result.slagTemperature));
+    results.push(result);
+  }
+  assert.notEqual(results[0].slagTemperature, results[1].slagTemperature,
+    'slagTemperature keeps the DLL temperature calculation');
+  for (const key of ['totalMat', 'materialParts', 'slagBasicity2', 'slagBasicity3',
+    'viscosity1400', 'viscosity1450', 'viscosity1500', 'viscosity1550']) {
+    assert.deepEqual(results[0][key], results[1][key], key);
+  }
+});
+
+test('calculation validation rejects individual negative consumption and invalid percentages', async (t) => {
+  const cases = [
+    ['CalculateSlagMode', i => { i.components[0].consumption = -1; }],
+    ['CalculateSlagMode', i => { i.coke.consumption = -1; }],
+    ['CalculateSlagMode', i => { i.slag.siO2 = 0; }],
+    ['CalculateSlagMode', i => { i.iron.s = 100.01; }],
+    ['CalculateSlagMode', i => { i.iron.temp = -273.15; }],
+    ['CalculateSlagMode', i => { i.components[0].fe = -0.01; }],
+  ];
+  for (const [index, [name, mutate]] of cases.entries()) {
+    await t.test(`${name} invalid input ${index}`, async () => {
+      const variables = example(name);
+      mutate(variables.input);
+      expectErrors(await graphql(document(name), variables), { code: 'VALIDATION_FAILED' });
+    });
+  }
+});
+
+test('individual zero consumption remains legal when the total is positive', async () => {
+  const variables = example('CalculateSlagMode');
+  variables.input.components[0].consumption = 0;
+  const result = (await operation('CalculateSlagMode', variables)).calculateSlagMode;
+  assertFiniteFields(result, SLAG_NUMERIC_FIELDS, 'calculateSlagMode');
+  assertMaterialParts(result, variables.input.components);
+});
+
+test('factual slag sulfur reaches the DLL distribution calculation with a compatible zero default', async () => {
+  const results = [];
+  for (const [slagSulfur, expected] of [[undefined, 0], [0.16, 10], [0.32, 20]]) {
+    const variables = example('CalculateSlagMode');
+    variables.input.iron.s = 0.016;
+    if (slagSulfur !== undefined) variables.input.slag.s = slagSulfur;
+    const result = (await operation('CalculateSlagMode', variables)).calculateSlagMode;
+    assertFiniteFields(result, SLAG_NUMERIC_FIELDS, 'calculateSlagMode');
+    assert.equal(result.sDistribution, expected);
+    results.push(result);
+  }
+  for (const key of ['totalMat', 'materialParts', 'castIronTemp', 'slagBasicity2',
+    'slagBasicity3', 'viscosity1400', 'viscosity1450', 'viscosity1500', 'viscosity1550']) {
+    assert.deepEqual(results[0][key], results[1][key], key);
+    assert.deepEqual(results[1][key], results[2][key], key);
+  }
+});
+
+test('required nested calculation objects and nonnumeric values fail GraphQL coercion', async () => {
+  for (const [name, mutate] of [
+    ['CalculateSlagMode', i => { i.iron = null; }],
+    ['CalculateSlagMode', i => { delete i.coke; }],
+    ['CalculateSlagMode', i => { i.iron.temp = 'NaN'; }],
+  ]) {
+    const variables = example(name);
+    mutate(variables.input);
+    const response = await graphql(document(name), variables);
+    expectErrors(response);
+    assert.equal(response.body.data, undefined);
+  }
 });

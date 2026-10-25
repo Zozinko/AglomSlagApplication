@@ -64,14 +64,19 @@ type AglomComponentResult {
 type BlastFurnace {
   bfId: Int!
   bfName: String!
-  calcVariants: [CalcVariant!]!
+  calcVariants: [CalcVariantReference!]!
+}
+
+type BlastFurnaceReference {
+  bfId: Int!
+  bfName: String!
 }
 
 type CalcVariant {
   variantId: Int!
   bfId: Int!
   calcDate: DateTime!
-  saveTime: DateTime!
+  saveTime: DateTime
   variantName: String!
   isImport: Boolean!
   cokeConsumption: Float!
@@ -81,6 +86,7 @@ type CalcVariant {
   cokeAshSiO2Content: Float!
   cokeAshAl2O3Content: Float!
   cokeAshMgOContent: Float!
+  slagSContent: Float!
   slagCaOContent: Float!
   slagSiO2Content: Float!
   slagTiO2Content: Float!
@@ -93,11 +99,41 @@ type CalcVariant {
   ciCContent: Float!
   ciTiContent: Float!
   ciCrContent: Float!
-  blastFurnace: BlastFurnace!
   parentId: Int
-  parent: CalcVariant
-  children: [CalcVariant!]!
+  blastFurnace: BlastFurnaceReference!
+  parent: CalcVariantReference
+  children: [CalcVariantReference!]!
   componentVariants: [ComponentVariant!]!
+}
+
+type CalcVariantReference {
+  variantId: Int!
+  bfId: Int!
+  calcDate: DateTime!
+  saveTime: DateTime
+  variantName: String!
+  isImport: Boolean!
+  cokeConsumption: Float!
+  cokeSContent: Float!
+  cokeAshAmount: Float!
+  cokeAshCaOContent: Float!
+  cokeAshSiO2Content: Float!
+  cokeAshAl2O3Content: Float!
+  cokeAshMgOContent: Float!
+  slagSContent: Float!
+  slagCaOContent: Float!
+  slagSiO2Content: Float!
+  slagTiO2Content: Float!
+  slagAl2O3Content: Float!
+  slagMgOContent: Float!
+  ciTemperature: Float!
+  ciSiContent: Float!
+  ciSContent: Float!
+  ciMnContent: Float!
+  ciCContent: Float!
+  ciTiContent: Float!
+  ciCrContent: Float!
+  parentId: Int
 }
 
 type ComponentGuide {
@@ -115,6 +151,20 @@ type ComponentGuide {
   componentVariants: [ComponentVariant!]!
 }
 
+type ComponentGuideReference {
+  componentId: Int!
+  componentName: String!
+  userId: Int!
+  feContent: Float!
+  siO2Content: Float!
+  al2O3Content: Float!
+  caOContent: Float!
+  mgOContent: Float!
+  sContent: Float!
+  mnOContent: Float!
+  tiO2Content: Float!
+}
+
 type ComponentVariant {
   variantId: Int!
   componentId: Int!
@@ -128,8 +178,8 @@ type ComponentVariant {
   sContent: Float!
   mnOContent: Float!
   tiO2Content: Float!
-  calcVariant: CalcVariant!
-  componentGuide: ComponentGuide!
+  componentGuide: ComponentGuideReference!
+  calcVariant: CalcVariantReference!
 }
 
 type KeyValuePairOfStringAndDouble {
@@ -193,6 +243,7 @@ input CalcVariantInput {
   cokeAshSiO2Content: Float!
   cokeAshAl2O3Content: Float!
   cokeAshMgOContent: Float!
+  slagSContent: Float! = 0
   slagCaOContent: Float!
   slagSiO2Content: Float!
   slagTiO2Content: Float!
@@ -309,6 +360,7 @@ input InputDataModelInput {
 }
 
 input InputDataSlagInput {
+  s: Float! = 0
   caO: Float!
   siO2: Float!
   tiO2: Float!

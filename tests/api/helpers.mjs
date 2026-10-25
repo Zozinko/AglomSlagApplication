@@ -2,15 +2,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 
-const endpoint = process.env.GRAPHQL_TEST_URL;
-assert.ok(endpoint, 'Set GRAPHQL_TEST_URL to an isolated test API; use tests/Run-ApiTests.ps1.');
+const endpoint = () => process.env.GRAPHQL_TEST_URL;
+assert.ok(endpoint(), 'Set GRAPHQL_TEST_URL to an isolated test API; use tests/Run-ApiTests.ps1.');
 const requests = new URL('../../requests/', import.meta.url);
 
 export const document = name => readFileSync(new URL(`operations/${name}.graphql`, requests), 'utf8');
 export const example = name => JSON.parse(readFileSync(new URL(`examples/${name}.variables.json`, requests), 'utf8'));
 
 export async function graphql(query, variables = {}) {
-  const response = await fetch(endpoint, {
+  const response = await fetch(endpoint(), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ query, variables }),

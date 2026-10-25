@@ -1,5 +1,5 @@
-﻿using AglomGraphQL.Api.Services;
-using DBStructure.Entities.SlagMode;
+using AglomGraphQL.Api.Services;
+using AglomSlagServer.Types.Outputs;
 
 namespace AglomSlagServer.Queries;
 
@@ -7,15 +7,15 @@ public class Query(SlagModeQueryService slagModeService)
 {
     public string Hello() => "Aglom GraphQL API";
 
-    public async Task<List<BlastFurnace>> GetBlastFurnaces() => 
+    public async Task<List<BlastFurnaceOutput>> GetBlastFurnaces() =>
         await slagModeService.GetBlastFurnacesAsync();
 
-    public async Task<List<ComponentGuide>> GetComponentGuides() => 
+    public async Task<List<ComponentGuideOutput>> GetComponentGuides() =>
         await slagModeService.GetComponentGuidesAsync();
 
-    public async Task<List<CalcVariant>> GetCalcVariants() => 
+    public async Task<List<CalcVariantOutput>> GetCalcVariants() =>
         await slagModeService.GetCalcVariantsAsync();
 
-    public async Task<CalcVariant?> GetCalcVariantById(int variantId) => 
+    public async Task<CalcVariantOutput?> GetCalcVariantById(int variantId) =>
         await slagModeService.GetCalcVariantByIdAsync(variantId);
 }

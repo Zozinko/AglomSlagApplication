@@ -108,6 +108,9 @@ namespace DBStructure.Migrations.SlagMode
                     b.Property<int?>("ParentId")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("SaveTime")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<float>("SlagAl2O3Content")
                         .HasColumnType("real");
 
@@ -116,6 +119,11 @@ namespace DBStructure.Migrations.SlagMode
 
                     b.Property<float>("SlagMgOContent")
                         .HasColumnType("real");
+
+                    b.Property<float>("SlagSContent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("real")
+                        .HasDefaultValue(0f);
 
                     b.Property<float>("SlagSiO2Content")
                         .HasColumnType("real");
@@ -159,6 +167,7 @@ namespace DBStructure.Migrations.SlagMode
                             SlagAl2O3Content = 24.6f,
                             SlagCaOContent = 40.9f,
                             SlagMgOContent = 2f,
+                            SlagSContent = 0f,
                             SlagSiO2Content = 36.56f,
                             SlagTiO2Content = 0.01f,
                             VariantName = "-1st variant"

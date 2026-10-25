@@ -1,4 +1,4 @@
-﻿using SlagModeSolver.DTOs;
+using SlagModeSolver.DTOs;
 using SlagSolverLibrary;
 using UBFBaseLibrary;
 using UBFBaseLibrary.Models;
@@ -28,6 +28,7 @@ public class SlagModeSolver
 
         calcModel.BaseSlag = new UBF_Slag()
         {
+            S = inputData.Slag.S,
             CaO = inputData.Slag.CaO,
             SiO2 = inputData.Slag.SiO2,
             TiO2 = inputData.Slag.TiO2
@@ -68,6 +69,7 @@ public class SlagModeSolver
             SlagBasicity1 = calcModel.BaseOsnovnost1,
             SlagOut = calcModel.MassOfOxSlagSum,
             MaterialCons = calcModel.RashodRudMat,
+            CastIronTemp = inputData.Iron.Temp,
             TotalMat = totalMaterials
         };
         data.MaterialParts = [];

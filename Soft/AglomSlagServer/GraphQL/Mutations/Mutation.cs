@@ -1,9 +1,9 @@
-﻿using AglomSlagServer.Types;
+using AglomSlagServer.Types;
 using AglomSlagServer.Types.Inputs;
 using AglomGraphQL.Api.Services;
 using AglomSlagServer.Types.Inputs.SlagMode;
 using SlagModeSolver.DTOs;
-using DBStructure.Entities.SlagMode;
+using AglomSlagServer.Types.Outputs;
 
 namespace AglomSlagServer.Mutations;
 
@@ -21,10 +21,10 @@ public class Mutation(SlagModeCalculationService slagCalcService, AglomCalculati
 
     // ========== BLAST FURNACE MUTATIONS ==========
     
-    public async Task<BlastFurnace> AddBlastFurnace(string bfName) =>
+    public async Task<BlastFurnaceOutput> AddBlastFurnace(string bfName) =>
         await slagModeService.AddBlastFurnaceAsync(bfName);
 
-    public async Task<BlastFurnace?> UpdateBlastFurnace(int bfId, string bfName) =>
+    public async Task<BlastFurnaceOutput?> UpdateBlastFurnace(int bfId, string bfName) =>
         await slagModeService.UpdateBlastFurnaceAsync(bfId, bfName);
 
     public async Task<bool> DeleteBlastFurnace(int bfId) =>
@@ -32,10 +32,10 @@ public class Mutation(SlagModeCalculationService slagCalcService, AglomCalculati
 
     // ========== COMPONENT GUIDE MUTATIONS ==========
     
-    public async Task<ComponentGuide> AddComponentGuide(ComponentGuideInput input) =>
+    public async Task<ComponentGuideOutput> AddComponentGuide(ComponentGuideInput input) =>
         await slagModeService.AddComponentGuideAsync(input);
 
-    public async Task<ComponentGuide?> UpdateComponentGuide(int componentId, ComponentGuideInput input) =>
+    public async Task<ComponentGuideOutput?> UpdateComponentGuide(int componentId, ComponentGuideInput input) =>
         await slagModeService.UpdateComponentGuideAsync(componentId, input);
 
     public async Task<bool> DeleteComponentGuide(int componentId) =>
@@ -43,10 +43,10 @@ public class Mutation(SlagModeCalculationService slagCalcService, AglomCalculati
 
     // ========== CALC VARIANT MUTATIONS ==========
     
-    public async Task<CalcVariant> AddCalcVariant(CalcVariantInput input, List<ComponentVariantInput> components) =>
+    public async Task<CalcVariantOutput> AddCalcVariant(CalcVariantInput input, List<ComponentVariantInput> components) =>
         await slagModeService.AddCalcVariantAsync(input, components);
 
-    public async Task<CalcVariant?> UpdateCalcVariant(int variantId, CalcVariantInput input, List<ComponentVariantInput> components) =>
+    public async Task<CalcVariantOutput?> UpdateCalcVariant(int variantId, CalcVariantInput input, List<ComponentVariantInput> components) =>
         await slagModeService.UpdateCalcVariantAsync(variantId, input, components);
 
     public async Task<bool> DeleteCalcVariant(int variantId) =>

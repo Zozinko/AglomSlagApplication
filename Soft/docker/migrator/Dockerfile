@@ -1,11 +1,13 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.402-noble@sha256:747cbade5bfd918a175ac32f8f1d931edec2c7d0d5397a3de72eaef1ac1f66d2 AS build
 WORKDIR /src
 
 # Устанавливаем глобальный инструмент EF Core
-RUN dotnet tool install --global dotnet-ef
+RUN dotnet tool install --global dotnet-ef --version 10.0.12
 ENV PATH="$PATH:/root/.dotnet/tools"
 
 # Копируем файлы проекта для restore
+COPY global.json ./
+
 COPY AglomSlagServer/AglomSlagServer.slnx AglomSlagServer/
 COPY AglomSlagServer/*.csproj AglomSlagServer/
 COPY DBStructure/*.csproj DBStructure/

@@ -56,7 +56,7 @@ test('blast furnace CRUD, list visibility, missing IDs, and reference protection
   const variant = await records.variant(furnace.bfId);
   const blocked = await graphql(document('DeleteBlastFurnace'), { bfId: furnace.bfId });
   assert.equal(blocked.status, 200);
-  expectErrors(blocked, { field: 'deleteBlastFurnace' });
+  expectErrors(blocked, { field: 'deleteBlastFurnace', code: 'REFERENCE_CONFLICT' });
   furnaces = (await operation('BlastFurnaces')).blastFurnaces;
   assert.ok(furnaces.some(({ bfId, bfName }) => bfId === furnace.bfId && bfName === updatedName));
 
@@ -117,7 +117,7 @@ test('component guide CRUD, list visibility, missing IDs, and reference protecti
   const variant = await records.variant(furnace.bfId, [componentInput(guide)]);
   const blocked = await graphql(document('DeleteComponentGuide'), { componentId: guide.componentId });
   assert.equal(blocked.status, 200);
-  expectErrors(blocked, { field: 'deleteComponentGuide' });
+  expectErrors(blocked, { field: 'deleteComponentGuide', code: 'REFERENCE_CONFLICT' });
   guides = (await operation('ComponentGuides')).componentGuides;
   assertGuide(guides.find(({ componentId }) => componentId === guide.componentId), updatedInput, guide.componentId);
 

@@ -2,7 +2,7 @@ namespace SlagModeSolver.DTOs;
 
 public class Material
 {
-    public string Sourcename { get; set; }
+    public required string Sourcename { get; set; }
 
     public double Consumption { get; set; }
 

@@ -1,3 +1,4 @@
+using AglomSlagServer.Errors;
 using SlagModeSolver.DTOs;
 using SlagCalculator = SlagModeSolver.SlagModeSolver;
 
@@ -7,34 +8,35 @@ public class SlagModeCalculationService
 {
     public OutputSlagMode Calculate(InputDataModel inputData)
     {
+        CalculationValidation.FiniteTree(inputData);
+        CalculationValidation.Require(inputData.Components.Count > 0, "Список материалов не может быть пустым.");
+        CalculationValidation.Percentages(inputData.Coke, nameof(InputDataCoke.Consumption));
+        CalculationValidation.Require(inputData.Coke.Consumption >= 0, "Расход кокса не может быть отрицательным.");
+        CalculationValidation.Percentages(inputData.Iron, nameof(InputDataIron.Temp));
+        CalculationValidation.Require(inputData.Iron.Temp > -273.15,
+            "Температура чугуна должна быть выше абсолютного нуля (−273,15 °C).");
+        CalculationValidation.Percentages(inputData.Slag);
+        foreach (var material in inputData.Components)
+        {
+            CalculationValidation.Require(!string.IsNullOrWhiteSpace(material.Sourcename), "Укажите название материала.");
+            CalculationValidation.Require(material.Consumption >= 0, "Расход отдельного материала не может быть отрицательным.");
+            CalculationValidation.Percentages(material, nameof(Material.Consumption));
+        }
+        var total = inputData.Components.Sum(material => material.Consumption);
+        CalculationValidation.Require(double.IsFinite(total) && total > 0, "Суммарный расход материалов должен быть конечным и положительным.");
+        // The public output contract defines basicities 1 and 2 with SiO2 as divisor.
+        CalculationValidation.Require(inputData.Slag.SiO2 > 0, "SiO2 шлака должен быть больше нуля для расчёта основности.");
         try
         {
-            // 1. Защита от null-ссылок, которые убивают DLL
-            if (inputData == null)
-                throw new ArgumentNullException(nameof(inputData), "Входные данные не могут быть null");
-            
-            if (inputData.Components == null || !inputData.Components.Any())
-                throw new ArgumentException("Список компонентов (Components) не может быть пустым или null");
-
-            var totalMaterials = inputData.Components.Sum(c => c.Consumption);
-            if (totalMaterials <= 0)
-                throw new ArgumentException("Суммарный расход материалов (Consumption) должен быть больше 0");
-
-            // 2. Вызов расчёта
-            return SlagModeSolver.SlagModeSolver.GetTableData(inputData);
+            var result = SlagCalculator.GetTableData(inputData);
+            CalculationValidation.FiniteTree(result, output: true);
+            return result;
         }
-        catch (Exception ex)
+        catch (ApiException) { throw; }
+        catch (Exception exception)
         {
-            // 3. Жёсткое логирование в консоль сервера
-            Console.WriteLine("========================================");
-            Console.WriteLine("!!! ОШИБКА В SlagModeSolver !!!");
-            Console.WriteLine($"Тип ошибки: {ex.GetType().Name}");
-            Console.WriteLine($"Сообщение: {ex.Message}");
-            Console.WriteLine($"Стек: {ex.StackTrace}");
-            Console.WriteLine("========================================");
-
-            // Пробрасываем ошибку дальше, чтобы GraphQL её показал (благодаря Шагу 1)
-            throw new InvalidOperationException($"Ошибка расчёта: {ex.Message}", ex);
+            Console.Error.WriteLine($"{PublicErrorCodes.CalculationFailed}: {exception.GetType().Name}");
+            throw CalculationValidation.Failed();
         }
     }
 }

@@ -2,11 +2,11 @@ namespace SlagModeSolver.DTOs;
 
 public class InputDataModel
 {
-    public InputDataCoke Coke { get; set; }
+    public required InputDataCoke Coke { get; set; }
 
-    public InputDataIron Iron { get; set; }
+    public required InputDataIron Iron { get; set; }
 
-    public InputDataSlag Slag { get; set; }
+    public required InputDataSlag Slag { get; set; }
 
-    public List<Material> Components { get; set; }
+    public required List<Material> Components { get; set; }
 }

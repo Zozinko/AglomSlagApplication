@@ -1,3 +1,5 @@
+using AglomSlagServer.Errors;
+using AglomSlagServer.Types.Outputs;
 using AglomSlagServer.Types.Inputs.SlagMode;
 using DBStructure.DbContexts;
 using DBStructure.Entities.SlagMode;
@@ -14,74 +16,62 @@ public class SlagModeQueryService
         _contextFactory = contextFactory;
     }
 
-    public async Task<List<BlastFurnace>> GetBlastFurnacesAsync()
+    public async Task<List<BlastFurnaceOutput>> GetBlastFurnacesAsync()
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        return await context.BlastFurnaces.ToListAsync();
+        return await SlagModeOutputReader.Furnaces(context);
     }
 
-    public async Task<List<ComponentGuide>> GetComponentGuidesAsync()
+    public async Task<List<ComponentGuideOutput>> GetComponentGuidesAsync()
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        return await context.ComponentsGuide.ToListAsync();
+        return await SlagModeOutputReader.Guides(context);
     }
 
-    public async Task<List<CalcVariant>> GetCalcVariantsAsync()
+    public async Task<List<CalcVariantOutput>> GetCalcVariantsAsync()
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        return await context.CalcVariants
-            .Include(cv => cv.BlastFurnace)
-            .Include(cv => cv.ComponentVariants)
-            .ToListAsync();
+        return await SlagModeOutputReader.Variants(context);
     }
 
-    public async Task<CalcVariant?> GetCalcVariantByIdAsync(int variantId)
+    public async Task<CalcVariantOutput?> GetCalcVariantByIdAsync(int variantId)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        return await context.CalcVariants
-            .Include(cv => cv.BlastFurnace)
-            .Include(cv => cv.ComponentVariants)
-            .FirstOrDefaultAsync(cv => cv.VariantId == variantId);
+        return (await SlagModeOutputReader.Variants(context, variantId)).SingleOrDefault();
     }
-
     // ========== BLAST FURNACE CRUD ==========
     
-    public async Task<BlastFurnace> AddBlastFurnaceAsync(string bfName)
+    public async Task<BlastFurnaceOutput> AddBlastFurnaceAsync(string bfName)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
+        ValidateName(bfName);
         var bf = new BlastFurnace { BfName = bfName };
         context.BlastFurnaces.Add(bf);
         await context.SaveChangesAsync();
-        return bf;
+        return (await SlagModeOutputReader.Furnaces(context, bf.BfId)).Single();
     }
 
-    public async Task<BlastFurnace?> UpdateBlastFurnaceAsync(int bfId, string bfName)
+    public async Task<BlastFurnaceOutput?> UpdateBlastFurnaceAsync(int bfId, string bfName)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         var bf = await context.BlastFurnaces.FindAsync(bfId);
         if (bf == null) return null;
         
+        ValidateName(bfName);
         bf.BfName = bfName;
         await context.SaveChangesAsync();
-        return bf;
+        return (await SlagModeOutputReader.Furnaces(context, bf.BfId)).Single();
     }
 
     public async Task<bool> DeleteBlastFurnaceAsync(int bfId)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        var bf = await context.BlastFurnaces
-            .Include(b => b.CalcVariants)
-            .FirstOrDefaultAsync(b => b.BfId == bfId);
+        var bf = await context.BlastFurnaces.FindAsync(bfId);
         
         if (bf == null) return false;
 
-        if (bf.CalcVariants.Any())
-        {
-            var variantList = string.Join(", ", 
-                bf.CalcVariants.Select(cv => $"{cv.VariantName} (от {cv.SaveTime:dd.MM.yyyy HH:mm})"));
-            throw new InvalidOperationException(
-                $"Невозможно удалить печь '{bf.BfName}', так как она используется в вариантах расчёта: {variantList}");
-        }
+        if (await context.CalcVariants.AnyAsync(v => v.BfId == bfId))
+            throw new ApiException(PublicErrorCodes.ReferenceConflict, "Печь используется в вариантах расчёта.");
 
         context.BlastFurnaces.Remove(bf);
         await context.SaveChangesAsync();
@@ -90,9 +80,10 @@ public class SlagModeQueryService
 
     // ========== COMPONENT GUIDE CRUD ==========
     
-    public async Task<ComponentGuide> AddComponentGuideAsync(ComponentGuideInput input)
+    public async Task<ComponentGuideOutput> AddComponentGuideAsync(ComponentGuideInput input)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
+        ValidateName(input.ComponentName);
         var component = new ComponentGuide
         {
             ComponentName = input.ComponentName,
@@ -109,15 +100,16 @@ public class SlagModeQueryService
 
         context.ComponentsGuide.Add(component);
         await context.SaveChangesAsync();
-        return component;
+        return (await SlagModeOutputReader.Guides(context, component.ComponentId)).Single();
     }
 
-    public async Task<ComponentGuide?> UpdateComponentGuideAsync(int componentId, ComponentGuideInput input)
+    public async Task<ComponentGuideOutput?> UpdateComponentGuideAsync(int componentId, ComponentGuideInput input)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         var component = await context.ComponentsGuide.FindAsync(componentId);
         if (component == null) return null;
 
+        ValidateName(input.ComponentName);
         component.ComponentName = input.ComponentName;
         component.UserId = input.UserId;
         component.FeContent = input.FeContent;
@@ -130,30 +122,18 @@ public class SlagModeQueryService
         component.TiO2Content = input.TiO2Content;
 
         await context.SaveChangesAsync();
-        return component;
+        return (await SlagModeOutputReader.Guides(context, component.ComponentId)).Single();
     }
 
     public async Task<bool> DeleteComponentGuideAsync(int componentId)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        var component = await context.ComponentsGuide
-            .Include(c => c.ComponentVariants)
-            .ThenInclude(cv => cv.CalcVariant)
-            .FirstOrDefaultAsync(c => c.ComponentId == componentId);
+        var component = await context.ComponentsGuide.FindAsync(componentId);
 
         if (component == null) return false;
 
-        if (component.ComponentVariants.Any())
-        {
-            var variantList = string.Join(", ",
-                component.ComponentVariants
-                    .Select(cv => cv.CalcVariant)
-                    .Where(cv => cv != null)
-                    .Select(cv => $"{cv!.VariantName} (от {cv.SaveTime:dd.MM.yyyy HH:mm})")
-                    .Distinct());
-            throw new InvalidOperationException(
-                $"Невозможно удалить компонент '{component.ComponentName}', так как он используется в вариантах расчёта: {variantList}");
-        }
+        if (await context.ComponentVariants.AnyAsync(v => v.ComponentId == componentId))
+            throw new ApiException(PublicErrorCodes.ReferenceConflict, "Компонент используется в вариантах расчёта.");
 
         context.ComponentsGuide.Remove(component);
         await context.SaveChangesAsync();
@@ -162,16 +142,18 @@ public class SlagModeQueryService
 
     // ========== CALC VARIANT CRUD ==========
     
-    public async Task<CalcVariant> AddCalcVariantAsync(CalcVariantInput input, List<ComponentVariantInput> components)
+    public async Task<CalcVariantOutput> AddCalcVariantAsync(CalcVariantInput input, List<ComponentVariantInput> components)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
+        await ValidateVariant(context, input, components);
         var bf = await context.BlastFurnaces.FindAsync(input.BfId) 
-            ?? throw new InvalidOperationException($"Печь с ID {input.BfId} не найдена");
+            ?? throw new ApiException(PublicErrorCodes.ReferenceNotFound, "Печь не найдена.");
 
         var variant = new CalcVariant
         {
             BfId = input.BfId,
             BlastFurnace = bf,
+            SaveTime = DateTime.UtcNow,
             CalcDate = input.CalcDate,
             VariantName = input.VariantName,
             IsImport = input.IsImport,
@@ -182,6 +164,7 @@ public class SlagModeQueryService
             CokeAshSiO2Content = input.CokeAshSiO2Content,
             CokeAshAl2O3Content = input.CokeAshAl2O3Content,
             CokeAshMgOContent = input.CokeAshMgOContent,
+            SlagSContent = input.SlagSContent,
             SlagCaOContent = input.SlagCaOContent,
             SlagSiO2Content = input.SlagSiO2Content,
             SlagTiO2Content = input.SlagTiO2Content,
@@ -212,10 +195,10 @@ public class SlagModeQueryService
 
         context.CalcVariants.Add(variant);
         await context.SaveChangesAsync();
-        return variant;
+        return (await SlagModeOutputReader.Variants(context, variant.VariantId)).Single();
     }
 
-    public async Task<CalcVariant?> UpdateCalcVariantAsync(int variantId, CalcVariantInput input, List<ComponentVariantInput> components)
+    public async Task<CalcVariantOutput?> UpdateCalcVariantAsync(int variantId, CalcVariantInput input, List<ComponentVariantInput> components)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         var variant = await context.CalcVariants
@@ -224,6 +207,7 @@ public class SlagModeQueryService
 
         if (variant == null) return null;
 
+        await ValidateVariant(context, input, components);
         variant.BfId = input.BfId;
         variant.CalcDate = input.CalcDate;
         variant.VariantName = input.VariantName;
@@ -235,6 +219,7 @@ public class SlagModeQueryService
         variant.CokeAshSiO2Content = input.CokeAshSiO2Content;
         variant.CokeAshAl2O3Content = input.CokeAshAl2O3Content;
         variant.CokeAshMgOContent = input.CokeAshMgOContent;
+        variant.SlagSContent = input.SlagSContent;
         variant.SlagCaOContent = input.SlagCaOContent;
         variant.SlagSiO2Content = input.SlagSiO2Content;
         variant.SlagTiO2Content = input.SlagTiO2Content;
@@ -267,7 +252,7 @@ public class SlagModeQueryService
         }).ToList();
 
         await context.SaveChangesAsync();
-        return variant;
+        return (await SlagModeOutputReader.Variants(context, variant.VariantId)).Single();
     }
 
     public async Task<bool> DeleteCalcVariantAsync(int variantId)
@@ -276,8 +261,33 @@ public class SlagModeQueryService
         var variant = await context.CalcVariants.FindAsync(variantId);
         if (variant == null) return false;
 
+        if (await context.CalcVariants.AnyAsync(v => v.ParentId == variantId))
+            throw new ApiException(PublicErrorCodes.ReferenceConflict, "У варианта есть дочерние варианты.");
+
         context.CalcVariants.Remove(variant);
         await context.SaveChangesAsync();
         return true;
+    }
+    private static void ValidateName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ApiException(PublicErrorCodes.ValidationFailed, "Имя не должно быть пустым.");
+    }
+
+    private static async Task ValidateVariant(SlagModeContext context, CalcVariantInput input,
+        List<ComponentVariantInput> components)
+    {
+        ValidateName(input.VariantName);
+        if (input.CalcDate.Kind != DateTimeKind.Utc)
+            throw new ApiException(PublicErrorCodes.ValidationFailed, "Дата расчёта должна быть задана в UTC.");
+        if (components.Select(c => c.ComponentId).Distinct().Count() != components.Count)
+            throw new ApiException(PublicErrorCodes.ValidationFailed, "Компоненты варианта должны иметь уникальные ID.");
+        foreach (var component in components) ValidateName(component.ComponentName);
+        if (!await context.BlastFurnaces.AnyAsync(b => b.BfId == input.BfId))
+            throw new ApiException(PublicErrorCodes.ReferenceNotFound, "Печь не найдена.");
+        var ids = components.Select(c => c.ComponentId).ToArray();
+        var found = await context.ComponentsGuide.CountAsync(c => ids.Contains(c.ComponentId));
+        if (found != ids.Length)
+            throw new ApiException(PublicErrorCodes.ReferenceNotFound, "Один или несколько компонентов не найдены.");
     }
 }

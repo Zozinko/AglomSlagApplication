@@ -2,9 +2,10 @@ mutation UpdateCalcVariant($variantId: Int!, $input: CalcVariantInput!, $compone
   updateCalcVariant(variantId: $variantId, input: $input, components: $components) {
     variantId bfId calcDate saveTime variantName isImport
     cokeConsumption cokeSContent cokeAshAmount cokeAshCaOContent cokeAshSiO2Content cokeAshAl2O3Content cokeAshMgOContent
-    slagCaOContent slagSiO2Content slagTiO2Content slagAl2O3Content slagMgOContent
+    slagSContent slagCaOContent slagSiO2Content slagTiO2Content slagAl2O3Content slagMgOContent
     ciTemperature ciSiContent ciSContent ciMnContent ciCContent ciTiContent ciCrContent
     parentId
+    blastFurnace { bfId bfName }
     componentVariants {
       variantId componentId componentName consumption feContent siO2Content al2O3Content caOContent mgOContent sContent mnOContent tiO2Content
     }

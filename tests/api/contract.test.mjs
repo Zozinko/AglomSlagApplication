@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { document, example, expectErrors, graphql, operation } from './helpers.mjs';
 
@@ -37,6 +38,9 @@ test('GET /graphql?sdl exposes exactly the documented query and mutation fields'
   const response = await fetch(url, { signal: AbortSignal.timeout(60_000) });
   assert.equal(response.status, 200, 'SDL endpoint should respond successfully');
   const sdl = await response.text();
+  const saved = readFileSync(new URL('../../requests/schema.graphql', import.meta.url), 'utf8');
+  const normalize = value => value.replace(/\r\n/g, '\n').trim();
+  assert.equal(normalize(sdl), normalize(saved), 'Saved SDL must match the current API; use -UpdateSchema for intentional changes.');
 
   const actualQuery = parseRootFields(sdl, 'Query');
   const actualMutation = parseRootFields(sdl, 'Mutation');

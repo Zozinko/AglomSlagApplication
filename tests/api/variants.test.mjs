@@ -38,7 +38,7 @@ async function readVariant(variantId) {
 }
 
 function stableState(variant) {
-  const { saveTime, ...state } = variant;
+  const state = variant;
   return {
     ...state,
     componentVariants: [...state.componentVariants].sort((a, b) => a.componentId - b.componentId),
@@ -154,32 +154,32 @@ test('invalid furnace, component FK and duplicate components reject atomically o
       // Cleanup even an unexpected partial insert before failing the assertion.
       const unexpected = (await operation('CalcVariants')).calcVariants.filter(v => v.variantName === input.variantName);
       for (const variant of unexpected) await operation('DeleteCalcVariant', { variantId: variant.variantId });
-      expectErrors(add, { field: 'addCalcVariant' });
+      expectErrors(add, { field: 'addCalcVariant', code: invalid.name === 'duplicate component' ? 'VALIDATION_FAILED' : 'REFERENCE_NOT_FOUND' });
       assert.equal(unexpected.length, 0, 'Failed add must not persist a variant or its children');
       assert.deepEqual(stableState(await readVariant(created.variantId)), original);
 
       const update = await graphql(document('UpdateCalcVariant'), {
         variantId: created.variantId, input, components: invalid.components,
       });
-      expectErrors(update, { field: 'updateCalcVariant' });
+      expectErrors(update, { field: 'updateCalcVariant', code: invalid.name === 'duplicate component' ? 'VALIDATION_FAILED' : 'REFERENCE_NOT_FOUND' });
       assert.deepEqual(stableState(await readVariant(created.variantId)), original,
         'Failed update must preserve all original scalars, furnace and components');
     });
   }
 });
 
-test('characterization: update selecting unloaded blastFurnace returns HC0018 after committing', async t => {
+test('update returns the actual furnace with the same and a different furnace ID', async t => {
   const f = fixture(t);
   const furnace = await f.furnace();
-  const guide = await f.guide();
-  const component = componentInput(guide);
-  const created = await f.variant(furnace.bfId, [component]);
-  const input = changedInput(furnace.bfId);
-  const query = document('UpdateCalcVariant').replace('parentId', 'blastFurnace { bfId bfName }\n    parentId');
-  const response = await graphql(query, { variantId: created.variantId, input, components: [] });
-  expectErrors(response, { code: 'HC0018' });
-  assert.equal(response.body.data.updateCalcVariant, null);
-  assert.ok(response.body.errors.some(error =>
-    error.path?.join('.') === 'updateCalcVariant.blastFurnace'));
-  assertVariant(await readVariant(created.variantId), input, []);
+  const other = await f.furnace();
+  const created = await f.variant(furnace.bfId);
+  const query = document('UpdateCalcVariant');
+  for (const target of [furnace, other]) {
+    const input = changedInput(target.bfId);
+    const response = await graphql(query, { variantId: created.variantId, input, components: [] });
+    assert.equal(response.body.errors, undefined, JSON.stringify(response.body.errors));
+    assertVariant(response.body.data.updateCalcVariant, input, []);
+    assert.deepEqual(response.body.data.updateCalcVariant.blastFurnace, target);
+    assert.deepEqual((await readVariant(created.variantId)).blastFurnace, target);
+  }
 });

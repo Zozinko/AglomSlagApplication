@@ -1,12 +1,12 @@
 # Словарь контрактов GraphQL
 
-Формальная схема: [schema.graphql](schema.graphql). Здесь описаны назначение полей и преобразования, которые нужны клиенту и агенту при расширении кода. Во всех существующих input поля обязательны (`!`), включая числовые, булевы и вложенные объекты. Для объектов в ответах нужен selection set. `Float` представляет и C# `float` (хранение), и `double` (расчёт); это не одинаковая точность.
+Формальная схема: [schema.graphql](schema.graphql). Здесь описаны назначение полей и преобразования, которые нужны клиенту и агенту при расширении кода. Прежние input-поля обязательны (`!`); новые `slag.s` и `slagSContent` имеют default `0`, поэтому их можно опускать. Для объектов в ответах нужен selection set. `Float` представляет и C# `float` (хранение), и `double` (расчёт); это не одинаковая точность.
 
 ## Единицы и значения
 
 Химический состав в seed передаётся в процентах: `fe=58.5`, `s=0.028`, а не `0.585` и `0.00028`. Имена `ash*Fraction` не означают, что сервер делит число на 100: значения передаются в DLL напрямую, в примере `ashCaOFraction=7.8`. Температура — °C. `materialParts.value` — доля 0..1. Для `totalSInOre` комментарий DTO указывает кг/т чугуна, для вязкости используются пуазы. Прочие единицы расходов/выходов сервер явно не формализует; не вводить пересчёт без согласования предметного контракта библиотек.
 
-Все примеры — технические данные для проверки интеграции. Даже успешный GraphQL-ответ не подтверждает физическую допустимость состава: сервер не проверяет сумму компонентов, диапазон всех процентов и область применимости математических моделей.
+Все примеры — технические данные для проверки интеграции. Даже успешный GraphQL-ответ не подтверждает предметную корректность состава: нормировка сумм и полная область применимости DLL не определены. Для шлакового расчёта конечность чисел и каждый процент 0–100 проверяются явно; агломерат в текущий объём багфиксов не входит.
 
 ## Сохранение: ComponentGuideInput
 
@@ -25,13 +25,13 @@
 | `mnOContent` | `Float!` | MnO |
 | `tiO2Content` | `Float!` | TiO2 |
 
-Output `ComponentGuide` дополнительно содержит `componentId` и навигацию `componentVariants` (список текущими запросами справочника не загружается). Сохранение принимает весь объект; update не является частичным PATCH.
+Output `ComponentGuide` дополнительно содержит `componentId` и полностью загруженную коллекцию `componentVariants`. Сохранение принимает весь объект; update не является частичным PATCH.
 
 ## Сохранение: ComponentVariantInput
 
 Элемент отдельного аргумента `components` в add/update варианта. Поля: `componentId: Int!`, `componentName: String!`, `consumption: Float!` и все восемь полей состава `*Content` из предыдущей таблицы. `userId` здесь отсутствует.
 
-`componentId` должен существовать в справочнике и не повторяться внутри одного варианта. Имя, расход и состав сохраняются из input, а не читаются автоматически из справочника. Output дополнительно содержит `variantId`, `calcVariant`, `componentGuide`; последняя связь не загружается обычным чтением вариантов и при её выборе возможна non-null ошибка. Выходные примеры поэтому используют скалярные поля компонента.
+`componentId` должен существовать в справочнике и не повторяться внутри одного варианта. Имя, расход и состав сохраняются из input, а не читаются автоматически из справочника. Output дополнительно содержит `variantId`, `calcVariant: CalcVariantReference!`, `componentGuide: ComponentGuideReference!`; обе ссылки загружаются и указывают на реальные связанные записи. Скалярные reference-типы не имеют обратных навигаций.
 
 ## Сохранение: CalcVariantInput
 
@@ -44,9 +44,24 @@ Output `ComponentGuide` дополнительно содержит `componentId
 | Кокс | `cokeConsumption`, `cokeSContent`, `cokeAshAmount` | расход, сера, количество золы |
 | Зола кокса | `cokeAshCaOContent`, `cokeAshSiO2Content`, `cokeAshAl2O3Content`, `cokeAshMgOContent` | состав золы |
 | Шлак | `slagCaOContent`, `slagSiO2Content`, `slagTiO2Content`, `slagAl2O3Content`, `slagMgOContent` | состав шлака |
+| Сера шлака | `slagSContent: Float! = 0` | фактическая сера шлака, %; новое поле с совместимым нулевым default |
 | Чугун | `ciTemperature`, `ciSiContent`, `ciSContent`, `ciMnContent`, `ciCContent`, `ciTiContent`, `ciCrContent` | температура и состав чугуна |
 
-Input не содержит `variantId`, `saveTime`, `parentId` и `components`. ID для update передаётся отдельным аргументом, компоненты — отдельным списком `components`. В output `CalcVariant` дополнительно присутствуют `variantId`, `saveTime`, `blastFurnace`, `parentId`, `parent`, `children`, `componentVariants`. `saveTime` сейчас вычисляется при создании C#-объекта и не хранится в БД. `parent`/`children` не загружаются явно и не редактируются текущим API. Для update не выбирать `blastFurnace` в ответе: связь не загружена, возможен `HC0018` уже после сохранения; читать её последующим `calcVariantById`.
+Input не содержит `variantId`, `saveTime`, `parentId` и `components`. ID для update передаётся отдельным аргументом, компоненты — отдельным списком `components`. В output `CalcVariant` дополнительно присутствуют `variantId`, `saveTime: DateTime`, `blastFurnace: BlastFurnaceReference!`, `parentId`, `parent: CalcVariantReference`, `children: [CalcVariantReference!]!`, `componentVariants`. `saveTime` — сохраняемое UTC-время создания, неизменное при update; для старых записей и seed — `null` (история неизвестна). `parent`/`children` загружаются полностью, но не редактируются текущим input. Ответ update включает актуальную печь без `HC0018`, в том числе после смены `bfId`.
+
+Корневые `BlastFurnace`, `ComponentGuide`, `CalcVariant`, `ComponentVariant` теперь отдельные DTO, поля EF не расширяют SDL автоматически. Коллекции ссылаются на скалярные Reference-типы, поэтому граф конечен. Это намеренное ограничение прежних рекурсивных навигаций. Все прежние selection set из `requests/operations` сохранены; для полного варианта используйте `calcVariantById`.
+
+### Публичные ошибки
+
+| `extensions.code` | Значение |
+|---|---|
+| `VALIDATION_FAILED` | пустое имя, дубликаты компонентов, неверная дата или вход расчёта |
+| `REFERENCE_NOT_FOUND` | отсутствующая печь/компонент при записи варианта |
+| `REFERENCE_CONFLICT` | используемая запись, родитель с детьми, ожидаемый FK/PK-конфликт |
+| `CALCULATION_FAILED` | исключение DLL или нечисловой результат шлакового расчёта |
+| `INTERNAL_ERROR` | неожидаемая внутренняя ошибка; детали клиенту не раскрываются |
+
+`FORBIDDEN`, `IMPORT_PROTECTED`, `FILE_ERROR`, `PRESET_NOT_SUPPORTED` зарезервированы в общем словаре. Auth, защита импортов, импорт файла и пресеты ещё не реализованы; наличие константы не означает работающий endpoint. Отсутствующий объект по-прежнему даёт `null` при update/read-by-ID и `false` при delete. После отказа валидации данные не изменяются.
 
 ## Расчёт: InputDataModelInput (шлаковый режим)
 
@@ -56,10 +71,10 @@ Input не содержит `variantId`, `saveTime`, `parentId` и `components`.
 |---|---|
 | `coke` | `consumption`, `sulfur`, `ashAmount`, `ashCaOFraction`, `ashSiO2Fraction`, `ashAl2O3Fraction`, `ashMgOFraction` |
 | `iron` | `si`, `s`, `mn`, `c`, `ti`, `cr`, `temp` |
-| `slag` | `caO`, `siO2`, `tiO2`, `al2O3`, `mgO` |
+| `slag` | `caO`, `siO2`, `tiO2`, `al2O3`, `mgO`; новое `s: Float! = 0` — фактическая сера в шлаке, % |
 | каждый `components[]` (`MaterialInput`) | `sourcename: String!`, `consumption`, `fe`, `siO2`, `al2O3`, `caO`, `mgO`, `s`, `mnO`, `tiO2` |
 
-Написание `sourcename` слитное и полностью в нижнем регистре. В input расчёта нет `componentId`, `bfId`, `userId` или `variantId`: можно считать без сохранения в БД. Список материалов должен быть непустым, суммарный `consumption` — больше нуля. Каждый индивидуальный отрицательный расход отдельно не запрещается текущей валидацией; клиенту нельзя считать это подтверждением корректности данных.
+Написание `sourcename` слитное и полностью в нижнем регистре. В input расчёта нет `componentId`, `bfId`, `userId` или `variantId`: можно считать без сохранения в БД. Список материалов должен быть непустым, все расходы — неотрицательными, сумма материалов — положительной и конечной. Отдельный нулевой расход допустим. Все числовые входы должны быть конечными, проценты — 0–100, `slag.siO2 > 0`, `iron.temp > -273.15 °C`. Последняя проверка ограничивает абсолютный ноль и не является моделью плавления: точный liquidus по составу не задан.
 
 ### Преобразование сохранённого варианта в расчёт
 
@@ -77,6 +92,7 @@ Input не содержит `variantId`, `saveTime`, `parentId` и `components`.
 | `ciTemperature` | `iron.temp` |
 | `ciSiContent`, `ciSContent`, `ciMnContent`, `ciCContent`, `ciTiContent`, `ciCrContent` | соответственно `iron.si`, `iron.s`, `iron.mn`, `iron.c`, `iron.ti`, `iron.cr` |
 | `slagCaOContent`, `slagSiO2Content`, `slagTiO2Content`, `slagAl2O3Content`, `slagMgOContent` | соответственно `slag.caO`, `slag.siO2`, `slag.tiO2`, `slag.al2O3`, `slag.mgO` |
+| `slagSContent` | `slag.s` |
 | `componentVariants[].componentName` | `components[].sourcename` |
 | `componentVariants[].consumption` | `components[].consumption` |
 | `componentVariants[].feContent`, `siO2Content`, `al2O3Content`, `caOContent`, `mgOContent`, `sContent`, `mnOContent`, `tiO2Content` | соответственно `components[].fe`, `siO2`, `al2O3`, `caO`, `mgO`, `s`, `mnO`, `tiO2` |
@@ -103,9 +119,9 @@ Input не содержит `variantId`, `saveTime`, `parentId` и `components`.
 | `slagTemperature` | из `UBF_Functions.GetSlagTemparature` для входного чугуна |
 | `currSlagViscosity` | вязкость при вычисленной температуре шлака |
 | `totalSInOre` | масса серы, вносимой в печь, кг/т чугуна, из `GetTotalRuda_S` |
-| `sActivity`, `sDistribution` | активность и коэффициент распределения серы из UBF |
+| `sActivity`, `sDistribution` | активность и фактический коэффициент распределения серы из UBF; для коэффициента теперь передаётся `slag.s` |
 | `sContentInCastIron` | входное содержание S чугуна |
-| `castIronTemp` | текущее значение 0: адаптер не заполняет это поле |
+| `castIronTemp` | входное `iron.temp`, отдельное от вычисляемой `slagTemperature` |
 
 `materialParts: [[KeyValuePairOfStringAndDouble!]!]!` — список словарей по одному материалу; выбирать `materialParts { key value }`, где `key` — имя материала, `value` — доля расхода. Форма JSON:
 

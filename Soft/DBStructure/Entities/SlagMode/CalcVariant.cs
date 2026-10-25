@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -13,7 +13,7 @@ namespace DBStructure.Entities.SlagMode
         public int VariantId { get; set; }
         public int BfId { get; set; }
         public DateTime CalcDate { get; set; }
-        public DateTime SaveTime { get; } = DateTime.Now;
+        public DateTime? SaveTime { get; set; }
         public required string VariantName { get; set; }
         public bool IsImport { get; set; }
         #endregion
@@ -29,6 +29,7 @@ namespace DBStructure.Entities.SlagMode
         #endregion
 
         #region Slag
+        public float SlagSContent { get; set; }
         public float SlagCaOContent { get; set; }
         public float SlagSiO2Content { get; set; }
         public float SlagTiO2Content { get; set; }

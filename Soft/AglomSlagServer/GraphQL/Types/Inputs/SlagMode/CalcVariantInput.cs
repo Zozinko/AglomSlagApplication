@@ -17,6 +17,8 @@ public class CalcVariantInput
     public float CokeAshMgOContent { get; set; }
     
     // Slag
+    [System.ComponentModel.DefaultValue(0f)]
+    public float SlagSContent { get; set; }
     public float SlagCaOContent { get; set; }
     public float SlagSiO2Content { get; set; }
     public float SlagTiO2Content { get; set; }

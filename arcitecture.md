@@ -27,6 +27,11 @@ tests/
     variants.test.mjs                   # варианты, связи, FK и атомарность
     calculations.test.mjs               # оба расчёта и отрицательные входы
     contract.test.mjs                   # hello, SDL и валидация GraphQL
+    persistence.test.mjs                # время, связи и валидация сохранения
+    error-contract.test.mjs             # публичные ошибки Production
+    calculation-roundtrip.test.mjs      # расчёт после сохранения float
+  infrastructure/runtime.test.mjs       # SQL, миграции, restart и отказы запуска
+  bugfix-verification.md                # протокол и ограничения багфиксов
 Soft/
   Docker-compose.yml                   # оркестрация трёх контейнеров
   .dockerignore
@@ -36,7 +41,10 @@ Soft/
     GraphQL/Queries/Query.cs            # 5 корневых query
     GraphQL/Mutations/Mutation.cs       # 11 корневых mutation
     GraphQL/Types/                     # выходные DTO агломерата и входные DTO
+    GraphQL/Types/Outputs/             # отдельные DTO шлака и ограниченные ссылки
     Services/                          # адаптеры расчётов и CRUD
+    Errors/                            # безопасные публичные коды и фильтр GraphQL
+    Startup/                           # обязательная проверка обеих БД
     appsettings*.json
     Properties/launchSettings.json
   DBStructure/
@@ -45,7 +53,6 @@ Soft/
     Entities/Auth/User.cs
     Migrations/SlagMode/                # собственная история SlagModeContext
     Migrations/Auth/                    # собственная история AuthContext
-    DBInitializer.cs                   # вспомогательный класс, сейчас не вызывается
   SlagModeSolver/
     SlagModeSolver.cs                   # адаптер математических библиотек
     DTOs/                              # InputData* / Material / OutputSlagMode
@@ -87,7 +94,7 @@ flowchart TD
 | `DBStructure` | EF Core, Npgsql; не зависит от API/solver |
 | `SlagModeSolver` | `SlagSolverLibrary.dll`, `UBFBaseLibrary.dll`, `UBFCalculationLibrary.dll`; не зависит от EF/API |
 
-Во всех проектах `net10.0`, nullable и implicit usings включены. Пакеты зафиксированы в `.csproj`: HotChocolate.AspNetCore `16.6.6`, EF Core/Design/Tools/Relational `10.0.12`, Npgsql.EntityFrameworkCore.PostgreSQL `10.0.3`, Google.OrTools `9.15.6755` (последний явно подключён в API). `global.json`, lock-файлов NuGet и локального manifest для `dotnet-ef` нет. В Docker SDK/runtime используются плавающие теги `10.0`, PostgreSQL — `16-alpine`; мигратор устанавливает `dotnet-ef` без версии, поэтому повторная сборка может получить другой инструмент.
+Во всех проектах `net10.0`, nullable и implicit usings включены. Пакеты зафиксированы в `.csproj`: HotChocolate.AspNetCore `16.6.6`, EF Core/Design/Tools/Relational `10.0.12`, Npgsql.EntityFrameworkCore.PostgreSQL `10.0.3`, Google.OrTools `9.15.6755`, Mapperly `4.3.1`. Корневой `global.json` и его копия `Soft/global.json` фиксируют SDK `10.0.402`, `rollForward=disable`: нужен именно этот SDK, случайное обновление не допускается. `.config/dotnet-tools.json` и Dockerfile migrator фиксируют `dotnet-ef 10.0.12`. Docker-образы SDK `10.0.402-noble`, ASP.NET `10.0.13-noble`, PostgreSQL `16.15-alpine` закреплены digest. Обновлять версии и digest вместе с проверками миграций и обоих Linux-расчётов. NuGet lock-файлов нет; нативные пакеты apt устанавливаются из репозитория базового образа, побитовая воспроизводимость сборки не заявляется.
 
 Имена namespace исторически неоднородны: сервисы API — `AglomGraphQL.Api.Services`, query — `AglomSlagServer.Queries`, mutation — `AglomSlagServer.Mutations`, DTO API — `AglomSlagServer.Types`. Расположение файла не обязано совпадать с namespace. В namespace `SlagModeSolver` есть класс с тем же именем.
 
@@ -116,9 +123,9 @@ Compose содержит локальные настройки `postgres/postgre
 
 `Program.cs` регистрирует две `AddPooledDbContextFactory<T>` с пулом 128. Параметры читаются через `GetConnectionString("SlagModeContext")` и `GetConnectionString("AuthContext")`. CRUD создаёт и освобождает контекст на каждый метод (`await using`); не делить один `DbContext` между параллельными резолверами.
 
-Scoped-сервисы: `AglomCalculationService`, `AglomCalculatorService` (из DLL), `SlagModeQueryService`, `SlagModeCalculationService`. Затем регистрируются корневые GraphQL-типы и `app.MapGraphQL()` без специального пути. `IncludeExceptionDetails=true` включён для всех окружений.
+Scoped-сервисы: `AglomCalculationService`, `AglomCalculatorService` (из DLL), `SlagModeQueryService`, `SlagModeCalculationService`. Затем регистрируются корневые GraphQL-типы и `app.MapGraphQL()` без специального пути. `IncludeExceptionDetails` включён только в Development. `PublicErrorFilter` получает зависимости из application provider через factory Hot Chocolate; в Production возвращает только безопасный код и сообщение, в Development дополнительно — тип исключения и SQLSTATE без SQL/стека/сырого сообщения. Диагностика провайдеров, способная раскрыть строки подключения и SQL, отключена; обычный серверный вывод содержит код, тип и SQLSTATE.
 
-В начале запуска API вызывает `CanConnectAsync` обоих контекстов. Возвращаемые `bool` игнорируются: сообщение об успехе не гарантирует доступность БД. Исключение только логируется, API продолжает запуск. Миграции из `Program.cs` не применяются. Отдельных health/readiness endpoint нет; `hello` проверяет доступность GraphQL, но не БД и не математических DLL.
+`DatabaseStartupCheck` в начале запуска явно проверяет результат `CanConnectAsync` обеих БД, включая случай отказа первой. Любая недоступная или неверно настроенная БД завершает API с кодом 1 до открытия HTTP-порта. При запуске EF tools проверка пропускается через `EF.IsDesignTime`. Адреса логируются из `app.Urls` после запуска. Миграции из `Program.cs` не применяются, неиспользовавшийся `DBInitializer` удалён. Отдельных health/readiness endpoint нет; `hello` проверяет доступность GraphQL, но не текущее состояние БД и математических DLL.
 
 Для запуска из IDE нужен **SDK .NET 10**, одного установленного runtime недостаточно:
 
@@ -128,7 +135,7 @@ dotnet build Soft/AglomSlagServer/AglomSlagServer.slnx -c Release --no-restore
 dotnet run --project Soft/AglomSlagServer --launch-profile http
 ```
 
-Профиль `http`: `http://localhost:5093/graphql`, `Development`; профиль `https` добавляет `https://localhost:7165/graphql`. Только `appsettings.Development.json` содержит локальные строки подключения. В Production их передаёт Compose через `ConnectionStrings__SlagModeContext` / `ConnectionStrings__AuthContext`; мигратор использует отдельные `CONNECTION_SLAG` / `CONNECTION_AUTH`. Переменные окружения ASP.NET переопределяют JSON. Фиксированная строка лога про порт 8080 не отражает порт профиля IDE.
+Профиль `http`: `http://localhost:5093/graphql`, `Development`; профиль `https` добавляет `https://localhost:7165/graphql`. Только `appsettings.Development.json` содержит локальные строки подключения. В Production их передаёт Compose через `ConnectionStrings__SlagModeContext` / `ConnectionStrings__AuthContext`; мигратор использует отдельные `CONNECTION_SLAG` / `CONNECTION_AUTH`. Переменные окружения ASP.NET переопределяют JSON. Лог сообщает фактически открытые адреса.
 
 API Dockerfile выполняет restore решения, publish Release и перенос в ASP.NET runtime, устанавливает `libgfortran5`, `libz-dev`, `libc6`. Сохранять нативные зависимости при изменении образа. Мигратор собирает проекты при выполнении `dotnet ef`; `entrypoint.sh` должен оставаться с LF и исполняемым в Linux. `.dockerignore` исключает `bin`, `obj`, IDE-каталоги и Markdown; документация вне `Soft` не попадает в build context.
 
@@ -136,11 +143,11 @@ API Dockerfile выполняет restore решения, publish Release и п�
 
 Полный каталог операций, входные поля, примеры и инструкции подключения находятся в [requests](requests/README.md). Единственный прикладной HTTP endpoint — `/graphql`; нет login/register, REST CRUD или subscriptions.
 
-Hot Chocolate выводит схему из C#: `GetBlastFurnaces()` становится `blastFurnaces`, `InputDataModel` во входе — `InputDataModelInput`, `float` и `double` — GraphQL `Float`, идентификаторы — `Int`, не `ID`. Химические обозначения чувствительны к регистру (`caO`, `siO2`, `feOinAgl`, `reportCaO_SiO2`). Все поля существующих input-типов в сохранённой SDL обязательны, значений по умолчанию в SDL нет.
+Hot Chocolate выводит схему из C#: `GetBlastFurnaces()` становится `blastFurnaces`, `InputDataModel` во входе — `InputDataModelInput`, `float` и `double` — GraphQL `Float`, идентификаторы — `Int`, не `ID`. Химические обозначения чувствительны к регистру (`caO`, `siO2`, `feOinAgl`, `reportCaO_SiO2`). Прежние input-поля обязательны; новые `slag.s` и `slagSContent` имеют явный default `0`, поэтому их можно опускать.
 
-`SlagModeQueryService` обслуживает **и чтение, и CRUD**. Списки целиком материализуются через `ToListAsync`, без пагинации, сортировки, фильтров, `AsNoTracking` и DataLoader. GraphQL не оптимизирует SQL под selection set: `.AddProjections/.AddFiltering/.AddSorting` не зарегистрированы.
+`SlagModeQueryService` обслуживает **и чтение, и CRUD**. Чтение выделено в `SlagModeOutputReader`: `AsNoTracking`, фиксированные по глубине `Include` и `AsSplitQuery`. Количество запросов определяется формой маршрута, а не количеством строк; by-ID и ответы mutation ограничиваются ID до загрузки. Пагинации, сортировки, пользовательских фильтров и DataLoader пока нет. GraphQL не оптимизирует SQL под selection set: `.AddProjections/.AddFiltering/.AddSorting` не зарегистрированы.
 
-`GetCalcVariantsAsync` и `GetCalcVariantByIdAsync` включают только `BlastFurnace` и `ComponentVariants`. Остальные навигации не загружаются явно. EF relationship fixup может заполнить часть обратных ссылок в пределах уже загруженного графа; это не полная загрузка связей. Например, `blastFurnaces { calcVariants }` не является заменой корневому `calcVariants`. `ComponentVariant.ComponentGuide` может остаться `null`, хотя схема объявляет его `!`. Контекст к моменту сериализации результата уже освобождён. Не рассчитывать на lazy loading или произвольный обход навигаций.
+Публичные типы хранения отделены от EF: `BlastFurnaceOutput`, `ComponentGuideOutput`, `CalcVariantOutput`, `ComponentVariantOutput` сохраняют GraphQL-имена корневых объектов. Mapperly генерирует перенос скаляров; обязательные ссылки и коллекции собираются явно после загрузки. RMG012/RMG020 для mapper — ошибки сборки. `blastFurnaces.calcVariants` и `componentGuides.componentVariants` возвращают полный связанный набор; вариант включает свою печь, компоненты с их справочником/вариантом, родителя и детей. Навигации ведут в отдельные скалярные `BlastFurnaceReference`, `ComponentGuideReference`, `CalcVariantReference`: обратные рекурсивные связи у них отсутствуют намеренно. Для полного объекта используется корневой query. Граф конечен и сериализуется после освобождения контекста; произвольный циклический обход старых EF-типов больше не часть контракта.
 
 Авторизация и аутентификация middleware не настроены; `UserId` принимается от клиента и не проверяется. `AuthContext` создаётся, но пользователи не доступны через корневые операции API. В seed есть тестовая запись `UserId=-1`, `UserName=test`, `UserEmail=test@test.test`; поле `PasswordHash` заполнено тестовой строкой, это не работающий механизм входа. CORS middleware не настроен; браузерный клиент с другого origin потребует отдельной настройки.
 
@@ -164,7 +171,9 @@ Hot Chocolate выводит схему из C#: `GetBlastFurnaces()` стано
 
 `ParentId/Parent/Children` существуют в EF/GraphQL output, но не задаются через текущий input и CRUD. При внешнем создании дочерних вариантов удаление родителя блокируется FK; специального понятного сообщения в сервисе для этого случая нет. Удаление печи/справочного компонента дополнительно проверяет использование и выдаёт исключение со списком вариантов. Update отсутствующего объекта возвращает `null`; delete отсутствующего — `false`.
 
-`UpdateCalcVariantAsync` загружает только компоненты, без печи. Выбор `blastFurnace` в ответе mutation даёт `HC0018` (non-null violation), хотя `SaveChangesAsync` уже выполнен. После такого ответа проверять состояние отдельным query, прежде чем повторять запись. Пример `UpdateCalcVariant.graphql` исключает эту связь; получить её можно через `calcVariantById`.
+`UpdateCalcVariantAsync` проверяет печь, компоненты, уникальность ID, имена и UTC-дату до изменения данных. После сохранения ответ заново читается через output reader, поэтому `blastFurnace` относится к актуальному `bfId`, включая смену печи. Используемые справочники и родитель с детьми возвращают `REFERENCE_CONFLICT` при удалении; отсутствующие ссылки — `REFERENCE_NOT_FOUND`, неверный input — `VALIDATION_FAILED`. Ограничения БД остаются окончательной защитой, ожидаемые FK/PK-конфликты также превращаются в публичный код. Одна `SaveChangesAsync` сохраняет замену состава атомарно.
+
+`SaveTime` хранится как nullable PostgreSQL `timestamp with time zone`. API задаёт `DateTime.UtcNow` только при создании варианта и сохраняет его при update. Для записей до миграции `20261025091648_PersistVariantSaveTime` и демонстрационного seed возвращается `null`: историческое время неизвестно. Nullable в SDL — намеренное изменение контракта.
 
 Числа хранения — C# `float` / PostgreSQL `real`, расчёты — `double`. `CalcDate` — `timestamp with time zone`: в API передавать UTC ISO 8601 (`2026-01-01T00:00:00Z`). Не менять масштабы процентов и единицы автоматически при преобразовании DTO.
 
@@ -172,7 +181,7 @@ Seed задан через `HasData`: печь `-1` (`TestBF`), справочн
 
 ### Миграции
 
-`SlagMode`: `20260930152651_InitialCreate` → `20261010141957_AddImportFeld` → `20261010145022_AddCalcData` → `20261010153419_FixCalcData` → `20261018094542_EditReferences`. Последняя меняет удаление печи с Cascade на Restrict. `Auth`: `20260930152821_InitialCreate` → `20261010140653_AddUser`.
+`SlagMode`: `20260930152651_InitialCreate` → `20261010141957_AddImportFeld` → `20261010145022_AddCalcData` → `20261010153419_FixCalcData` → `20261018094542_EditReferences` → `20261025091648_PersistVariantSaveTime` → `20261025093431_AddSlagSulfurContent`. `EditReferences` меняет удаление печи с Cascade на Restrict, `PersistVariantSaveTime` добавляет nullable время создания без поддельного backfill, последняя миграция — фактическую серу шлака с совместимым default 0. `Auth`: `20260930152821_InitialCreate` → `20261010140653_AddUser`.
 
 Мигратор последовательно запускает `dotnet ef database update` для `SlagModeContext` и `AuthContext` (`set -e`: ошибка первого останавливает запуск). Если первая база обновлена, а вторая упала, общей rollback-транзакции между базами нет. Повторный запуск применяет только недостающие миграции.
 
@@ -184,7 +193,7 @@ dotnet ef migrations add MeaningfulChange --context SlagModeContext --project So
 dotnet ef database update --context SlagModeContext --project Soft/DBStructure --startup-project Soft/AglomSlagServer --connection "Host=localhost;Port=5432;Database=SlagMode;Username=postgres;Password=postgres"
 ```
 
-Для этих команд установить совместимый `dotnet-ef` 10.x и дать startup-проекту корректные строки подключения для обоих контекстов (например, `ASPNETCORE_ENVIRONMENT=Development`). Не переписывать применённую историю ради изменения модели. Проверять Up/Down и snapshot; миграции для двух контекстов не смешивать. `DBInitializer` сейчас не участвует в запуске: он ищет регистрации базового `DbContext`, а в DI зарегистрированы конкретные фабрики; простое добавление вызова не гарантирует миграцию двух БД.
+Для этих команд выполнить `dotnet tool restore` из корня: manifest закрепляет `dotnet-ef 10.0.12`. Дать startup-проекту корректные строки подключения для обоих контекстов (например, `ASPNETCORE_ENVIRONMENT=Development`). Не переписывать применённую историю ради изменения модели. Проверять Up/Down и snapshot; миграции для двух контекстов не смешивать. Единственный автоматический механизм миграций — Compose migrator.
 
 ## Расчёт агломерата
 
@@ -198,11 +207,13 @@ dotnet ef database update --context SlagModeContext --project Soft/DBStructure -
 
 Путь: `Mutation.CalculateSlagMode` → `SlagModeCalculationService.Calculate` → `SlagModeSolver.GetTableData` → библиотеки UBF и SlagSolver → `OutputSlagMode`. БД не участвует; сохранение через `addCalcVariant/updateCalcVariant` выполняется отдельно клиентом.
 
-Сервис проверяет непустой список материалов и положительную сумму `Consumption`; затем вызывает solver синхронно. Все исключения логируются со стеком и оборачиваются в `InvalidOperationException("Ошибка расчёта: ...")`. Проверки суммарного расхода недостаточно для валидации химического состава и области применимости математических моделей.
+Сервис проверяет обязательные объекты, конечность чисел, непустой список, неотрицательный индивидуальный расход (ноль допустим), положительную конечную сумму расходов, проценты 0–100 и ненулевой SiO2 в делителе основности. Температура должна быть выше абсолютного нуля; предметную границу жидкого состояния без модели фазового состава сервер не выдумывает. До сериализации проверяется конечность всего результата, независимо от selection set. Некорректный input возвращает `VALIDATION_FAILED`, исключение DLL или нечисловой результат — безопасный `CALCULATION_FAILED`. Сырые исключения, SQL и входные данные не отправляются клиенту.
 
-Solver создаёт `SlagMode`, заполняет `BaseChugun`, `BaseSlag`, `BaseKoks`, `BaseShihta`, вызывает `SetPartOfZhRM`. В `BaseSlag` передаются только CaO, SiO2, TiO2. Al2O3 и MgO из того же input используются в отдельном `SlagSolver.Solve(CaO, SiO2, Al2O3, MgO)`. Результаты UBF и SlagSolver объединяются; температура и текущая вязкость рассчитываются через `UBF_Functions`.
+Solver создаёт `SlagMode`, заполняет `BaseChugun`, `BaseSlag`, `BaseKoks`, `BaseShihta`, вызывает `SetPartOfZhRM`. В `BaseSlag` передаются CaO, SiO2, TiO2 и фактическая сера S. Al2O3 и MgO из того же input используются в отдельном `SlagSolver.Solve(CaO, SiO2, Al2O3, MgO)`. Результаты UBF и SlagSolver объединяются; температура и текущая вязкость рассчитываются через `UBF_Functions`.
 
-`totalMat` — сумма входных расходов. `materialParts` — список словарей по одному материалу с долей `Consumption / totalMaterials` (0..1), в GraphQL это **вложенный список** объектов `{ key, value }`, а не JSON-object. `slagOut` и `balSlagMass` оба берутся из `MassOfOxSlagSum`. `castIronTemp` объявлен в DTO, но нигде не заполняется и сейчас равен 0.
+`totalMat` — сумма входных расходов. `materialParts` — список словарей по одному материалу с долей `Consumption / totalMaterials` (0..1), в GraphQL это **вложенный список** объектов `{ key, value }`, а не JSON-object. `slagOut` и `balSlagMass` оба берутся из `MassOfOxSlagSum`: это два имени одного значения текущего адаптера, а не независимые балансы. `castIronTemp` возвращает входной `iron.temp`; `slagTemperature` сохраняет отдельный вызов DLL.
+
+Ранее `sDistribution=0` возникал потому, что `BaseSlag.S` не заполнялся. Новые необязательные `slag.s` и сохраняемое `slagSContent` передают фактическую серу, %; старые запросы и записи сохраняют прежнее вычислительное допущение `0`, которое не следует считать измеренным историческим значением. Миграция `20261025093431_AddSlagSulfurContent` добавляет PostgreSQL `real DEFAULT 0`. Публичный эксперимент DLL и HTTP-регрессия: `(S)=0.16/0.32`, `[S]=0.016` дают коэффициенты 10/20. Нелинейная часть DLL этим не верифицируется. Для нормальных binary32 чисел ошибка хранения ограничена `|x|·2^-24`; для отношения серы — `|ratio|·2u/(1-u)`, `u=2^-24`. Общую допустимую ошибку непрозрачных нелинейных формул из одной точности входа вывести нельзя.
 
 Составы и содержание элементов в seed передаются числами в процентах (например, Fe=58.5, S=0.028), а не долями 0..1; температура — °C. Для расхода и специфических выходов ориентироваться на предметную документацию библиотек и комментарии DTO: сервер не задаёт общую систему единиц. Не выдавать технические примеры за эталон металлургической модели.
 
@@ -218,18 +229,18 @@ Solver создаёт `SlagMode`, заполняет `BaseChugun`, `BaseSlag`, `
 
 | Симптом / риск | Где искать и что учитывать |
 |---|---|
-| `saveTime` изменяется при повторном чтении | `CalcVariant.SaveTime { get; } = DateTime.Now`; отсутствует в EF snapshot/миграциях, вычисляется при материализации объекта. Для исправления нужны решение о UTC, запись свойства и миграция/backfill |
-| `castIronTemp=0` | свойство `OutputSlagMode` не заполняется в `GetTableData` |
+| Историческое `saveTime=null` | намеренно: время старых записей неизвестно; новые записи хранят стабильное UTC-время |
+| `castIronTemp` | исправлен: входная температура чугуна; не подменяет температуру шлака |
 | `createPreset` ничего не сохраняет | отсутствует ветка обработки в `AglomCalculationService`; `id` результата — `userId` |
-| Пустые/неполные навигации или null-ошибки GraphQL | загрузка `.Include`, освобождение контекста, неполное EF fixup; публичные EF-сущности напрямую используются как output |
-| Ошибки FK/дубликаты компонентов | проверить `BfId`, `ComponentId`, составной PK; update полностью заменяет список |
-| Недостоверный лог подключения | результат `CanConnectAsync` не проверяется |
-| SQL/stack trace попадает клиенту | `IncludeExceptionDetails=true` включён и в Production |
+| Навигации GraphQL | исправлены через отдельные DTO и явную загрузку; скалярные Reference-типы ограничивают глубину обхода |
+| Ошибки FK/дубликаты компонентов | preflight-валидация с публичными кодами и окончательные ограничения БД; update полностью заменяет список |
+| Диагностика подключения | обе БД проверяются, отказ завершает запуск; сообщения не раскрывают строку подключения |
+| Ошибки GraphQL | безопасные публичные коды; SQL/stack trace не возвращаются клиенту |
 | Нет разграничения данных по пользователю | отсутствуют auth middleware, проверка `UserId`, FK на Auth и фильтрация |
 | Нельзя получить schema через `__schema` в Production | в проверенном стенде introspection запрещён (`HC0046`), но `GET /graphql?sdl` возвращает SDL |
-| Расчёт возвращает ошибку при необычных данных | валидация ограничена, возможны исключения/нечисловые значения из DLL; проверять полный набор результатов, не только один scalar |
-| Сборка/миграции отличаются между машинами | теги Docker и версия dotnet-ef не зафиксированы; локально нужен SDK 10, проверить LF у `.sh` |
-| Предупреждения `CS8618` при сборке | часть non-null свойств входных/выходных DTO не имеет инициализации; изменение nullable/required влияет и на GraphQL-контракт, поэтому проверять SDL |
+| Область применимости расчёта | базовая валидация и проверка всего результата шлака введены; фазовая модель и научные эталоны DLL отсутствуют |
+| Окружение | SDK/EF CLI и digest образов закреплены; локально нужен SDK 10.0.402, `.sh` сохраняются с LF |
+| Предупреждения `CS8618` при сборке | в шлаковых DTO устранены; существующие предупреждения Aglom оставлены по прямому исключению этой области пользователем |
 
 ## Как вносить изменения
 
@@ -259,11 +270,11 @@ Solver создаёт `SlagMode`, заполняет `BaseChugun`, `BaseSlag`, `
 
 `catalog.test.mjs` проверяет CRUD справочников и блокировку удаления используемых записей. `variants.test.mjs` проверяет чтение/запись всех входных полей, замену/очистку состава, связи, снимки компонентов, каскадное удаление и отсутствие частичного сохранения при ошибках FK/дубликатах. `calculations.test.mjs` проверяет оба флюса агломерата, конечность всех выбранных числовых результатов, суммы/доли материалов и ошибочные входы шлакового расчёта. `contract.test.mjs` проверяет `hello`, SDL с точным набором 16 операций, примеры, ошибки GraphQL и отключённую introspection в Production.
 
-Фикстуры создают собственные записи и очищают их после теста; основной Compose и его данные не используются. Адрес `GRAPHQL_TEST_URL` задаётся runner на случайный loopback-порт, автоматического обращения к рабочему API нет. Сравнения `float` выполняются с допуском; изменяющийся `saveTime` исключён из сравнения отката.
+Фикстуры создают собственные записи и очищают их после теста; основной Compose и его данные не используются. Адрес `GRAPHQL_TEST_URL` задаётся runner на случайный loopback-порт, автоматического обращения к рабочему API нет. Сравнения `float` выполняются с допуском; сохраняемое `saveTime` включено в сравнение отката.
 
-Отдельная characterization-проверка воспроизводит известный `HC0018` при выборе `blastFurnace` в результате update и подтверждает запись отдельным query. Она фиксирует дефект, а не его исправление; после исправления ожидание нужно изменить. Проверки расчётов не являются предметной верификацией закрытых DLL и не используют наблюдавшиеся числа как утверждённые эталоны.
+Прежняя characterization-проверка `HC0018` заменена регрессией успешного ответа со старой/новой печью. `persistence.test.mjs` проверяет сохранённое время и навигации; `error-contract.test.mjs` — безопасные публичные ошибки; `calculation-roundtrip.test.mjs` — сохранность входов с IEEE-754 допуском и расчёт после сохранения. Последовательный `infrastructure/runtime.test.mjs` проверяет SQL, restart, обновление прежней схемы, snapshot, отказ подключения и Development. Проверки расчётов не являются предметной верификацией закрытых DLL и не используют наблюдавшиеся числа как утверждённые эталоны.
 
-Проверено 25.10.2026 после ревью результатов трёх субагентов: **26 тестов прошли, ошибок и пропусков нет** на свежей временной БД с настоящими миграциями. Инфраструктура после прогона удалена. Прикладной код, миграции и API-контракт в рамках добавления тестов не менялись.
+Исторический первый набор из 26 тестов описан в `requests/verification.md`. Текущий протокол багфиксов и границы выполненного: [tests/bugfix-verification.md](tests/bugfix-verification.md). Статус определяется последним завершённым прогоном, а не одним успешным build.
 
 ## Проверка документации на живом стенде
 

@@ -1,0 +1,4 @@
+[SlagModeOutputMapper.cs]
+# Adding an output member without a generated mapping is a build error.
+dotnet_diagnostic.RMG012.severity = error
+dotnet_diagnostic.RMG020.severity = error

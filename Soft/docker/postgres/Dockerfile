@@ -1,4 +1,4 @@
-FROM postgres:16-alpine
+FROM postgres:16.15-alpine@sha256:f4610795587492cd4fb887c2dc3de301b813278bb6f616992061141b5f15ac36
 
 COPY init-scripts/ /docker-entrypoint-initdb.d/
 

@@ -2,7 +2,7 @@ query CalcVariants {
   calcVariants {
     variantId bfId calcDate saveTime variantName isImport
     cokeConsumption cokeSContent cokeAshAmount cokeAshCaOContent cokeAshSiO2Content cokeAshAl2O3Content cokeAshMgOContent
-    slagCaOContent slagSiO2Content slagTiO2Content slagAl2O3Content slagMgOContent
+    slagSContent slagCaOContent slagSiO2Content slagTiO2Content slagAl2O3Content slagMgOContent
     ciTemperature ciSiContent ciSContent ciMnContent ciCContent ciTiContent ciCrContent
     blastFurnace { bfId bfName }
     parentId

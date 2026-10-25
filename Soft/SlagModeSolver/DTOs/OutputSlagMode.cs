@@ -121,5 +121,5 @@ public class OutputSlagMode
         ///<summary>
         /// Справочник использованных шихтовых материалов
         /// </summary>
-        public List<Dictionary<string, double>> MaterialParts { get; set; }
+        public List<Dictionary<string, double>> MaterialParts { get; set; } = [];
     }
