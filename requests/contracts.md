@@ -1,12 +1,12 @@
-# Словарь контрактов GraphQL
+# Поля GraphQL и единицы измерения
 
-Формальная схема: [schema.graphql](schema.graphql). Здесь описаны назначение полей и преобразования, которые нужны клиенту и агенту при расширении кода. Прежние input-поля обязательны (`!`); новые `slag.s` и `slagSContent` имеют default `0`, поэтому их можно опускать. Для объектов в ответах нужен selection set. `Float` представляет и C# `float` (хранение), и `double` (расчёт); это не одинаковая точность.
+Готовые команды находятся в [инструкции запросов](README.md), точные типы — в [схеме API](schema.graphql). Здесь можно проверить смысл поля, единицу и способ преобразования сохранённого варианта в расчёт. Знак `!` означает обязательное значение. У новых `slag.s` и `slagSContent` значение по умолчанию `0`, поэтому их можно опустить. В запросе нужно перечислить нужные поля ответа. Тип GraphQL `Float` используется и для C# `float` при хранении, и для `double` при расчёте; точность у них разная.
 
 ## Единицы и значения
 
-Химический состав в seed передаётся в процентах: `fe=58.5`, `s=0.028`, а не `0.585` и `0.00028`. Имена `ash*Fraction` не означают, что сервер делит число на 100: значения передаются в DLL напрямую, в примере `ashCaOFraction=7.8`. Температура — °C. `materialParts.value` — доля 0..1. Для `totalSInOre` комментарий DTO указывает кг/т чугуна, для вязкости используются пуазы. Прочие единицы расходов/выходов сервер явно не формализует; не вводить пересчёт без согласования предметного контракта библиотек.
+Химический состав в демонстрационных данных передаётся в процентах: `fe=58.5`, `s=0.028`, а не `0.585` и `0.00028`. Имена `ash*Fraction` не означают, что сервер делит число на 100: значения передаются в DLL напрямую, в примере `ashCaOFraction=7.8`. Температура — °C. `materialParts.value` — доля 0..1. Для `totalSInOre` комментарий объекта данных указывает кг/т чугуна, для вязкости используются пуазы. Прочие единицы расходов/выходов сервер явно не формализует; не вводить пересчёт без уточнения единиц готовых библиотек.
 
-Все примеры — технические данные для проверки интеграции. Даже успешный GraphQL-ответ не подтверждает предметную корректность состава: нормировка сумм и полная область применимости DLL не определены. Для шлакового расчёта конечность чисел и каждый процент 0–100 проверяются явно; агломерат в текущий объём багфиксов не входит.
+Все примеры — технические данные для проверки интеграции. Даже успешный GraphQL-ответ не подтверждает предметную корректность состава: нормировка сумм и полная область применимости DLL не определены. Для шлакового расчёта сервер проверяет, что числа не равны NaN или бесконечности, а проценты лежат в пределах 0–100. Изменение расчёта агломерата не входило в нынешние исправления.
 
 ## Сохранение: ComponentGuideInput
 
@@ -25,31 +25,31 @@
 | `mnOContent` | `Float!` | MnO |
 | `tiO2Content` | `Float!` | TiO2 |
 
-Output `ComponentGuide` дополнительно содержит `componentId` и полностью загруженную коллекцию `componentVariants`. Сохранение принимает весь объект; update не является частичным PATCH.
+Ответ `ComponentGuide` дополнительно содержит `componentId` и полностью загруженную коллекцию `componentVariants`. Сохранение принимает весь объект; update полностью заменяет поля записи.
 
 ## Сохранение: ComponentVariantInput
 
 Элемент отдельного аргумента `components` в add/update варианта. Поля: `componentId: Int!`, `componentName: String!`, `consumption: Float!` и все восемь полей состава `*Content` из предыдущей таблицы. `userId` здесь отсутствует.
 
-`componentId` должен существовать в справочнике и не повторяться внутри одного варианта. Имя, расход и состав сохраняются из input, а не читаются автоматически из справочника. Output дополнительно содержит `variantId`, `calcVariant: CalcVariantReference!`, `componentGuide: ComponentGuideReference`; справочник скрывается (null), если его владелец недоступен текущему пользователю. Скалярные reference-типы не имеют обратных навигаций.
+`componentId` должен существовать в справочнике и не повторяться внутри одного варианта. Имя, расход и состав сохраняются из входных данных, а не читаются автоматически из справочника. Ответ дополнительно содержит `variantId`, `calcVariant: CalcVariantReference!`, `componentGuide: ComponentGuideReference`; справочник скрывается (null), если его владелец недоступен текущему пользователю. Объекты ссылок содержат только простые поля, без обратных вложенных связей.
 
 ## Сохранение: CalcVariantInput
 
-Используется add/update вариантами. Пример: [AddCalcVariant.variables.json](examples/AddCalcVariant.variables.json). Все перечисленные числовые показатели — `Float!`, кроме явно указанных типов.
+Используется при создании и изменении варианта. Пример: [AddCalcVariant.variables.json](examples/AddCalcVariant.variables.json). Все перечисленные числовые показатели — `Float!`, кроме явно указанных типов.
 
 | Группа | Поля | Назначение |
 |---|---|---|
 | Идентификация | `bfId: Int!`, `variantName: String!` | существующая печь и имя варианта |
-| Дата и источник | `calcDate: DateTime!`, `isImport: Boolean!` | дата расчёта UTC ISO8601; обычный CRUD допускает только isImport=false, оригинал защищён от update/delete |
+| Дата и источник | `calcDate: DateTime!`, `isImport: Boolean!` | дата расчёта UTC ISO8601; обычные операции допускают только isImport=false; импортный оригинал нельзя менять и удалять |
 | Кокс | `cokeConsumption`, `cokeSContent`, `cokeAshAmount` | расход, сера, количество золы |
 | Зола кокса | `cokeAshCaOContent`, `cokeAshSiO2Content`, `cokeAshAl2O3Content`, `cokeAshMgOContent` | состав золы |
 | Шлак | `slagCaOContent`, `slagSiO2Content`, `slagTiO2Content`, `slagAl2O3Content`, `slagMgOContent` | состав шлака |
-| Сера шлака | `slagSContent: Float! = 0` | фактическая сера шлака, %; новое поле с совместимым нулевым default |
+| Сера шлака | `slagSContent: Float! = 0` | фактическая сера шлака, %; новое поле со значением по умолчанию 0 |
 | Чугун | `ciTemperature`, `ciSiContent`, `ciSContent`, `ciMnContent`, `ciCContent`, `ciTiContent`, `ciCrContent` | температура и состав чугуна |
 
-Input не содержит `variantId`, `saveTime`, `parentId` и `components`. ID для update передаётся отдельным аргументом, компоненты — отдельным списком `components`. В output `CalcVariant` дополнительно присутствуют `variantId`, `saveTime: DateTime`, `blastFurnace: BlastFurnaceReference!`, `parentId`, `parent: CalcVariantReference`, `children: [CalcVariantReference!]!`, `componentVariants`. `saveTime` — сохраняемое UTC-время создания, неизменное при update; для старых записей и seed — `null` (история неизвестна). `parent`/`children` загружаются полностью, но не редактируются текущим input. Ответ update включает актуальную печь без `HC0018`, в том числе после смены `bfId`.
+Входной объект не содержит `variantId`, `saveTime`, `parentId` и `components`. ID для изменения передаётся отдельным аргументом, компоненты — отдельным списком `components`. В ответе `CalcVariant` дополнительно присутствуют `variantId`, `saveTime: DateTime`, `blastFurnace: BlastFurnaceReference!`, `parentId`, `parent: CalcVariantReference`, `children: [CalcVariantReference!]!`, `componentVariants`. `saveTime` — сохраняемое UTC-время создания, неизменное при редактировании; для старых записей и демонстрационных данных — `null` (история неизвестна). `parent`/`children` загружаются полностью, но не редактируются через нынешний входной объект. Ответ изменения включает актуальную печь, в том числе после смены `bfId`.
 
-Корневые `BlastFurnace`, `ComponentGuide`, `CalcVariant`, `ComponentVariant` теперь отдельные DTO, поля EF не расширяют SDL автоматически. Коллекции ссылаются на скалярные Reference-типы, поэтому граф конечен. Это намеренное ограничение прежних рекурсивных навигаций. Все прежние selection set из `requests/operations` сохранены; для полного варианта используйте `calcVariantById`.
+Объекты ответа `BlastFurnace`, `ComponentGuide`, `CalcVariant`, `ComponentVariant` отделены от объектов БД. Добавление поля в БД не добавляет его в схему автоматически. Вложенные ссылки содержат только простые поля, поэтому связи нельзя раскрывать бесконечно. Готовые запросы из `requests/operations` сохранены; полный вариант можно получить через `calcVariantById`.
 
 ### Публичные ошибки
 
@@ -61,11 +61,11 @@ Input не содержит `variantId`, `saveTime`, `parentId` и `components`.
 | `CALCULATION_FAILED` | исключение DLL или нечисловой результат шлакового расчёта |
 | `INTERNAL_ERROR` | неожидаемая внутренняя ошибка; детали клиенту не раскрываются |
 
-FORBIDDEN используется при отказе доступа; auth и защита действующих API-путей импортных оригиналов реализованы. IMPORT_PROTECTED/FILE_ERROR/PRESET_NOT_SUPPORTED остаются зарезервированными для будущих путей импорта/пресетов; полный ORM-инвариант IMP-01 ещё не реализован. Отсутствующий объект по-прежнему даёт `null` при update/read-by-ID и `false` при delete. После отказа валидации данные не изменяются.
+`FORBIDDEN` означает отказ в доступе. Вход, права и запрет изменения импортных оригиналов проверяются нынешними методами API. Коды `IMPORT_PROTECTED`, `FILE_ERROR`, `PRESET_NOT_SUPPORTED` оставлены для будущего импорта и наборов настроек. Защита при прямой работе с объектами БД (IMP-01) ещё не реализована. Отсутствующий объект по-прежнему даёт `null` при update/read-by-ID и `false` при delete. После отказа валидации данные не изменяются.
 
 ## Расчёт: InputDataModelInput (шлаковый режим)
 
-Не совпадает с DTO хранения. Поля верхнего уровня: `coke: InputDataCokeInput!`, `iron: InputDataIronInput!`, `slag: InputDataSlagInput!`, `components: [MaterialInput!]!`. Пример: [CalculateSlagMode.variables.json](examples/CalculateSlagMode.variables.json).
+Отличается от объекта данных для хранения. Поля верхнего уровня: `coke: InputDataCokeInput!`, `iron: InputDataIronInput!`, `slag: InputDataSlagInput!`, `components: [MaterialInput!]!`. Пример: [CalculateSlagMode.variables.json](examples/CalculateSlagMode.variables.json).
 
 | Объект | Все поля (числа — `Float!`) |
 |---|---|
@@ -74,13 +74,13 @@ FORBIDDEN используется при отказе доступа; auth и �
 | `slag` | `caO`, `siO2`, `tiO2`, `al2O3`, `mgO`; новое `s: Float! = 0` — фактическая сера в шлаке, % |
 | каждый `components[]` (`MaterialInput`) | `sourcename: String!`, `consumption`, `fe`, `siO2`, `al2O3`, `caO`, `mgO`, `s`, `mnO`, `tiO2` |
 
-Написание `sourcename` слитное и полностью в нижнем регистре. В input расчёта нет `componentId`, `bfId`, `userId` или `variantId`: можно считать без сохранения в БД. Список материалов должен быть непустым, все расходы — неотрицательными, сумма материалов — положительной и конечной. Отдельный нулевой расход допустим. Все числовые входы должны быть конечными, проценты — 0–100, `slag.siO2 > 0`, `iron.temp > -273.15 °C`. Последняя проверка ограничивает абсолютный ноль и не является моделью плавления: точный liquidus по составу не задан.
+Написание `sourcename` слитное и полностью в нижнем регистре. Во входных данных расчёта нет `componentId`, `bfId`, `userId` или `variantId`: можно считать без сохранения в БД. Список материалов должен быть непустым, все расходы — неотрицательными, сумма материалов — положительной и конечной. Отдельный нулевой расход допустим. Все числовые входы должны быть конечными, проценты — 0–100, `slag.siO2 > 0`, `iron.temp > -273.15 °C`. Последняя проверка ограничивает абсолютный ноль и не является моделью плавления: точная температура полного расплавления (ликвидус) по составу не задана.
 
 ### Преобразование сохранённого варианта в расчёт
 
-Серверного endpoint «рассчитать по ID» нет. После `calcVariantById` клиент формирует input:
+Метода «рассчитать по ID» на сервере нет. После `calcVariantById` клиент формирует входные данные по таблице:
 
-| Источник (`CalcVariant`) | Поле расчётного input |
+| Источник (`CalcVariant`) | Поле входных данных расчёта |
 |---|---|
 | `cokeConsumption` | `coke.consumption` |
 | `cokeSContent` | `coke.sulfur` |
@@ -97,7 +97,7 @@ FORBIDDEN используется при отказе доступа; auth и �
 | `componentVariants[].consumption` | `components[].consumption` |
 | `componentVariants[].feContent`, `siO2Content`, `al2O3Content`, `caOContent`, `mgOContent`, `sContent`, `mnOContent`, `tiO2Content` | соответственно `components[].fe`, `siO2`, `al2O3`, `caO`, `mgO`, `s`, `mnO`, `tiO2` |
 
-Использовать состав из `componentVariants`, если нужен повтор сохранённого расчёта; актуальный справочник мог быть отредактирован. Для обратного сохранения расчётного DTO дополнительно нужны ID печи и компонентов, дата, имя и `isImport`, которых в DTO расчёта нет.
+Использовать состав из `componentVariants`, если нужен повтор сохранённого расчёта; актуальный справочник мог быть отредактирован. Чтобы сохранить входные данные расчёта, дополнительно нужны ID печи и компонентов, дата, имя и `isImport`: в расчётном объекте этих полей нет.
 
 ### OutputSlagMode
 
@@ -129,7 +129,7 @@ FORBIDDEN используется при отказе доступа; auth и �
 {"materialParts":[[{"key":"Материал A","value":0.6}],[{"key":"Материал B","value":0.4}]]}
 ```
 
-Список словарей допускает одинаковые имена разных материалов, поэтому нельзя безусловно сворачивать его в один dictionary без решения о суммировании.
+Имена разных материалов могут совпадать. Чтобы объединить список в один словарь, сначала нужно решить, суммировать ли доли одинаковых имён.
 
 ## Расчёт: CalculateAglomInput (агломерат)
 
@@ -145,9 +145,9 @@ FORBIDDEN используется при отказе доступа; auth и �
 | `chargeComponents: [ChargeComponentInput!]!` | каждый компонент: `name: String!`, `weight`, `wet`, `pmpp`, `fe`, `feO`, `caO`, `siO2`, `mgO`, `al2O3`, `tiO2`, `s`, `p`, `cr`, `zn`, `mnO` |
 | `aglomParameters: AglomParametersInput!` | `basicity`, `feOinAgl`, `fluxType: FluxType!` |
 
-`wet` и `pmpp` передаются напрямую как показатели влажности и потерь при прокаливании; адаптер их не преобразует. При необходимости уточнения трактовки обращаться к контракту готовой библиотеки. `FluxType` в SDL имеет ровно два значения: `LIMESTONE`, `DOLOMITE`. В variables JSON enum передаётся строкой; в inline GraphQL — без кавычек. Оба состава флюсов обязательны независимо от выбранного типа.
+`wet` и `pmpp` передаются напрямую как показатели влажности и потерь при прокаливании; адаптер их не преобразует. При необходимости уточнения трактовки обращаться к описанию готовой библиотеки. `FluxType` в SDL имеет ровно два значения: `LIMESTONE`, `DOLOMITE`. В variables JSON enum передаётся строкой; в inline GraphQL — без кавычек. Оба состава флюсов обязательны независимо от выбранного типа.
 
-Агломерационный input использует `name/weight`, шлаковый — `sourcename/consumption`, а хранилище — `componentName/*Content`. Нельзя передать один DTO вместо другого только переименованием верхнего объекта.
+Входной объект агломерата использует `name/weight`, шлакового расчёта — `sourcename/consumption`, а хранилище — `componentName/*Content`. Нельзя передать один объект данных вместо другого только переименованием верхнего объекта.
 
 ### AglomCalculationResult и AglomComponentResult
 
@@ -164,12 +164,12 @@ FORBIDDEN используется при отказе доступа; auth и �
 
 Все `report*` — `Float!`. Адаптер только копирует результаты DLL; не следует трактовать каждую промежуточную строку как нормированный процент конечного продукта. В проверенном примере библиотека вернула строки «Шихта», «Известняк», «Доломит», «Коксик», «Зола коксика», «Итог». Это наблюдение конкретного примера, а не жёстко заданный сервером список.
 
-## Авторизация и новые контракты (26.10.2026)
+## Вход и права
 
-Все прежние операции требуют Bearer JWT. Login (credentials либо refresh), Logout, ChangePassword и безопасный user DTO: [authentication.md](../docs/authentication.md). LoginInput: email/password/refreshToken nullable с default null, выбирается ровно один режим. LoginPayload: accessToken, accessExpiresAt, refreshToken, refreshExpiresAt, user (userId, userName?, userEmail, admin). Пароль/хеш в output отсутствуют.
+Все бизнес-методы, кроме `login`, требуют токен доступа в `Authorization: Bearer ...`. HTTP доступен также в Production: `http://localhost:5000/graphql`. Редактор запросов, GET, SDL и introspection открыты; доступ к бизнес-полям проверяется отдельно, включая смешанный документ с `login`.
 
-CalcVariant/CalcVariantRef имеют userId:Int!, владелец назначается сервером и сохраняется при admin-update. CalcVariantInput.userId имеет Int! = 0 (можно опустить); прежний ComponentGuideInput.userId остаётся обязательным Int!. Оба игнорируются сервером. componentGuide в ComponentVariant nullable при недоступном владельцу справочнике; чужие parentId/parent/children скрываются. SaveTime хранится UTC, у старой истории null.
+`LoginInput` содержит необязательные `email`, `password`, `refreshToken` со значением по умолчанию `null`: нужно выбрать email+пароль либо только токен обновления. `LoginPayload` возвращает `accessToken`, `accessExpiresAt`, `refreshToken`, `refreshExpiresAt`, `user` (`userId`, `userName?`, `userEmail`, `admin`). Пароль и хеш в ответ не входят. Правила `Logout` и `ChangePassword` описаны в [инструкции входа](../docs/authentication.md).
 
-Дополнительные коды: AUTH_NOT_AUTHENTICATED, INVALID_CREDENTIALS, LOGIN_RATE_LIMITED, FORBIDDEN, IMPORTED_DATA_READ_ONLY, IMPORTED_DATA_DELETE_FORBIDDEN. Чужая/отсутствующая печь редактируется только admin, отсутствующая ссылка на печь даёт REFERENCE_NOT_FOUND; чужой/отсутствующий componentId при сохранении состава даёт FORBIDDEN. Внешние ограничения ролей и защита импортов действуют независимо. Публичный isImport не даёт права создавать импорт; true отклоняется обычным CRUD.
+`CalcVariant` и `CalcVariantRef` имеют `userId: Int!`. Владельца назначает сервер и сохраняет при изменении администратором. `CalcVariantInput.userId: Int! = 0` можно опустить; `ComponentGuideInput.userId: Int!` остаётся обязательным. Оба значения игнорируются сервером. Чужие `parentId`, `parent`, `children` скрываются; ссылка `componentGuide` на недоступный справочник равна `null`.
 
-API использует HTTP также в Production: `http://localhost:5000/graphql`. IDE, GET, SDL и introspection доступны публично; все бизнес-поля, кроме login, требуют JWT, в том числе в смешанном документе с login.
+Дополнительные коды ошибок: `AUTH_NOT_AUTHENTICATED`, `INVALID_CREDENTIALS`, `LOGIN_RATE_LIMITED`, `FORBIDDEN`, `IMPORTED_DATA_READ_ONLY`, `IMPORTED_DATA_DELETE_FORBIDDEN`. Менять печи может только администратор. Отсутствующая ссылка на печь даёт `REFERENCE_NOT_FOUND`; недоступный или отсутствующий `componentId` при сохранении состава — `FORBIDDEN`. Обычные операции создания и изменения не принимают `isImport=true`. Уже сохранённый импорт нельзя изменять или удалять ни одной роли.

@@ -1,21 +1,18 @@
 # Запросы GraphQL
 
-Текущий контракт: 5 query и 14 mutation. Endpoint Docker — `http://localhost:5000/graphql`; Development IDE — `http://localhost:5093/graphql`. Инструкции: [настройка](../docs/configuration.md), [вход и права](../docs/authentication.md), [ручная приёмка четырёх задач](../docs/manual-auth-check.md), [словарь полей](contracts.md), [SDL](schema.graphql).
+Здесь находятся готовые запросы для входа, чтения, сохранения и расчётов. API содержит 5 запросов чтения (`query`) и 14 операций изменения или расчёта (`mutation`).
 
-## Быстрый старт: четыре шага
+Если приложение ещё не запущено, выполните [четыре шага настройки](../docs/configuration.md). Все команды ниже выполняются из корня репозитория. По умолчанию используется Docker: `http://localhost:5000/graphql`. Для API из IDE добавьте `-Endpoint http://localhost:5093/graphql`.
 
-1. Клонировать проект с GitHub и перейти в корень клона.
-2. Скопировать `Soft/.env.example` в `Soft/.env`, заполнить DB-доступы, `JWT_SIGNING_KEY` и email/пароли обеих demo-ролей.
-3. Выполнить `docker compose --env-file Soft/.env -f Soft/Docker-compose.yml up -d --build`: БД, миграции и demo-аккаунты создаются автоматически.
-4. Выполнить Login ниже и передавать его access в запросах. В браузере доступна IDE `http://localhost:5000/graphql`.
+Справочные материалы: [поля и единицы](contracts.md), [схема API](schema.graphql), [вход и права](../docs/authentication.md), [ручная проверка](../docs/manual-auth-check.md).
 
 ## Подключение
 
-Все бизнес-операции, включая Hello и расчёты, требуют `Authorization: Bearer <accessToken>`. Единственное исключение — Login с credentials или refresh. Ни Login в соседнем поле документа, ни aliases/fragments не открывают другие методы. Проверять `errors` даже при HTTP200; ошибка ответа сама по себе не доказывает отсутствие записи при неожиданном сетевом отказе.
+Все бизнес-операции, включая Hello и расчёты, требуют `Authorization: Bearer <accessToken>`. Исключение — Login с email и паролем либо токеном обновления. Вход в соседнем поле документа не разрешает другие методы. Проверяйте `errors` даже при HTTP 200. Если ответ потерян из-за сетевой ошибки, результат сохранения нужно проверить отдельным запросом.
 
-Исполняемый документ находится в `operations/<Operation>.graphql`, JSON variables — в `examples/<Operation>.variables.json`. Для Login/ChangePassword примеры содержат только заполнители, рабочие credentials не сохранять в Git. Даты UTC ISO8601, дробные числа с точкой, названия полей чувствительны к регистру. ID имеют тип `Int`. Значение0 в примере — заполнитель, отрицательные seed-ID — настоящие записи. В изменяющих операциях использовать собственные ID.
+Исполняемый документ находится в `operations/<Operation>.graphql`, JSON с переменными — в `examples/<Operation>.variables.json`. Для Login/ChangePassword примеры содержат только заполнители, настоящие пароли не сохранять в Git. Даты UTC ISO8601, дробные числа с точкой, названия полей чувствительны к регистру. ID имеют тип `Int`. Значение 0 в примере — заполнитель, отрицательные ID демонстрационных данных — настоящие записи. В изменяющих операциях использовать собственные ID.
 
-`Invoke-GraphQL.ps1` принимает `-Variables` (объект в памяти) или `-VariablesPath`, `-AccessToken`, `-Headers`, `-Endpoint`; отправляет одну операцию и прекращает выполнение при GraphQL errors. Совместим с PowerShell5.1+. HTTP используется также в Production. IDE, GET, SDL и introspection доступны; бизнес-поля проверяют JWT при любом способе отправки.
+`Invoke-GraphQL.ps1` принимает `-Variables` (объект в памяти) или `-VariablesPath`, `-AccessToken`, `-Headers`, `-Endpoint`; отправляет одну операцию и прекращает выполнение при GraphQL errors. Совместим с PowerShell 5.1+. HTTP работает также в Production. В браузере доступен редактор GraphQL; схема (`SDL` и introspection) открыта без входа. GET поддерживается, но бизнес-поля всегда требуют JWT.
 
 ## Две роли, сохранение и расчёт
 
@@ -59,19 +56,19 @@ $user = (.\requests\Invoke-GraphQL.ps1 -Operation Login -Variables @{
 .\requests\Invoke-GraphQL.ps1 -Operation Logout -AccessToken $admin.accessToken
 ```
 
-Пустой состав подходит для сохранения, расчёт требует полного входа. Чтобы рассчитать сохранённый вариант, преобразовать его поля по [mapping](contracts.md); сервер автоматически этого не делает. При повторном запуске Compose аккаунты, пароли и сохранённые данные остаются.
+Пустой состав подходит для сохранения, расчёт требует полного входа. Чтобы рассчитать сохранённый вариант, преобразовать его поля по [таблице соответствий](contracts.md#преобразование-сохранённого-варианта-в-расчёт); сервер автоматически этого не делает. При повторном запуске Compose аккаунты, пароли и сохранённые данные остаются.
 
 ## Сессии
 
 | Операция | Аргументы / результат | Правило |
 |---|---|---|
 | [Login](operations/Login.graphql) | `input: LoginInput!` → `LoginPayload!` | либо email+password, либо только refreshToken; accessToken/accessExpiresAt/refreshToken/refreshExpiresAt/user |
-| [Logout](operations/Logout.graphql) | нет → Boolean! | защищённая операция, отзывает семейство текущего access по sub/sid |
-| [ChangePassword](operations/ChangePassword.graphql) | currentPassword, newPassword → Boolean! | защищена, проверяет прежний пароль, отзывает все refresh пользователя |
+| [Logout](operations/Logout.graphql) | нет → Boolean! | защищённая операция, отзывает цепочку обновлений текущего токена доступа по sub/sid |
+| [ChangePassword](operations/ChangePassword.graphql) | currentPassword, newPassword → Boolean! | защищена, проверяет прежний пароль, отзывает все токены обновления пользователя |
 
-Refresh JSON-пример — [Login.refresh.variables.json](examples/Login.refresh.variables.json); передавать его как variables операции **Login**. На успехе заменить оба токена в памяти. Погашенный refresh нельзя повторять: replay отзывает всё семейство. При потерянном ответе войти паролем. JWT после Logout/блокировки/смены пароля действует до exp; новые права при входе/refresh берутся из Auth-БД. Для неизвестного email, неверного пароля/refresh один код `INVALID_CREDENTIALS`; ограничение попыток — `LOGIN_RATE_LIMITED`. Нет открытого Register и отдельного Refresh endpoint.
+Пример обновления — [Login.refresh.variables.json](examples/Login.refresh.variables.json); это переменные операции **Login**. При успехе замените оба токена в памяти. Повторное использование прежнего токена обновления отзывает всю цепочку замен. При потере ответа войдите с паролем. После Logout, блокировки или смены пароля токен доступа остаётся действующим до конца своего срока (по умолчанию 300 секунд и допуск часов 5 секунд). Неизвестный email, неверный пароль или токен обновления дают `INVALID_CREDENTIALS`; превышение числа попыток — `LOGIN_RATE_LIMITED`. Подробнее — [вход и права](../docs/authentication.md).
 
-## Query
+## Чтение данных
 
 | Операция | Аргументы → результат | Поведение |
 |---|---|---|
@@ -81,18 +78,18 @@ Refresh JSON-пример — [Login.refresh.variables.json](examples/Login.refr
 | [CalcVariants](operations/CalcVariants.graphql) | нет → [CalcVariant!]! | свои варианты; администратор — всех владельцев |
 | [CalcVariantById](operations/CalcVariantById.graphql) | variantId:Int! → CalcVariant | отсутствующий/чужой ID обычному пользователю возвращает null |
 
-Пагинации, сортировки и пользовательских фильтров пока нет (API-01). Публичные DTO отделены от EF, связи ограничены по глубине; схема не зависит от случайной EF-навигации. Чужие parent/parentId/children скрываются. В собственном снимке состава `componentGuide` может быть null при чужом справочнике, сам снимок сохраняется.
+Пагинации, сортировки и пользовательских фильтров пока нет (API-01). Объекты ответа отделены от объектов БД, глубина вложенных связей ограничена. Чужие parent/parentId/children скрываются. В собственном снимке состава `componentGuide` может быть null при чужом справочнике, сам снимок сохраняется.
 
-## Mutation расчётов
+## Расчёты
 
 | Операция | Вход → результат | Поведение |
 |---|---|---|
-| [CalculateAglom](operations/CalculateAglom.graphql) | CalculateAglomInput! → AglomCalculationResult! | расчёт через DLL; id — эхо input.userId, не PK и не право доступа; createPreset пока игнорируется |
-| [CalculateSlagMode](operations/CalculateSlagMode.graphql) | InputDataModelInput! → OutputSlagMode! | полный расчётный input, без чтения/записи вариантов |
+| [CalculateAglom](operations/CalculateAglom.graphql) | CalculateAglomInput! → AglomCalculationResult! | расчёт через DLL; id — эхо input.userId, не ID записи и не право доступа; createPreset пока игнорируется |
+| [CalculateSlagMode](operations/CalculateSlagMode.graphql) | InputDataModelInput! → OutputSlagMode! | полные входные данные расчёта, без чтения/записи вариантов |
 
-CreatePreset агломерата не добавлен. Шлак можно сохранить через AddCalcVariant, загрузить и преобразовать к расчётному input на клиенте; [mapping](contracts.md). Проверки интеграции DLL не являются научными эталонами.
+Сохранение набора настроек агломерата пока не реализовано. Вариант шлакового расчёта можно сохранить через AddCalcVariant, загрузить и преобразовать на клиенте по [таблице соответствий](contracts.md#преобразование-сохранённого-варианта-в-расчёт). Проверки интеграции DLL не являются научными эталонами.
 
-## CRUD печей
+## Создание, изменение и удаление печей
 
 Только администратор; обычный пользователь получает `FORBIDDEN`.
 
@@ -102,7 +99,7 @@ CreatePreset агломерата не добавлен. Шлак можно с�
 | [UpdateBlastFurnace](operations/UpdateBlastFurnace.graphql) | bfId, bfName | новое имя / null при отсутствии |
 | [DeleteBlastFurnace](operations/DeleteBlastFurnace.graphql) | bfId | Boolean!; используемая печь → REFERENCE_CONFLICT |
 
-## CRUD справочника
+## Работа со справочником
 
 | Операция | Аргументы | Поведение |
 |---|---|---|
@@ -112,17 +109,17 @@ CreatePreset агломерата не добавлен. Шлак можно с�
 
 Администратор может менять чужой справочник, сохраняя владельца. Правка справочника не изменяет снимки состава сохранённых вариантов.
 
-## CRUD вариантов
+## Работа с вариантами
 
 | Операция | Аргументы | Поведение |
 |---|---|---|
 | [AddCalcVariant](operations/AddCalcVariant.graphql) | input:CalcVariantInput!, components:[ComponentVariantInput!]! | сервер назначает текущего владельца; input.userId игнорируется |
-| [UpdateCalcVariant](operations/UpdateCalcVariant.graphql) | variantId, input, components | полный update доступного обычного варианта, владелец/время создания сохраняются; чужой/отсутствующий → null |
+| [UpdateCalcVariant](operations/UpdateCalcVariant.graphql) | variantId, input, components | полностью заменяет поля доступного обычного варианта, владелец/время создания сохраняются; чужой/отсутствующий → null |
 | [DeleteCalcVariant](operations/DeleteCalcVariant.graphql) | variantId | чужой/отсутствующий → false, состав удаляется каскадно, родитель с детьми → REFERENCE_CONFLICT |
 
-Ссылки на componentId должны быть доступны пользователю, иначе `FORBIDDEN`; отсутствующая печь → `REFERENCE_NOT_FOUND`. Компоненты уникальны внутри варианта. `components:[]` допустим для хранения/очистки, но непригоден для расчёта. Update возвращает актуальную печь, включая смену bfId. Время `saveTime` сохраняется в UTC и стабильно после update/restart; прежняя история/seed имеют null.
+Ссылки на componentId должны быть доступны пользователю, иначе `FORBIDDEN`; отсутствующая печь → `REFERENCE_NOT_FOUND`. Компоненты уникальны внутри варианта. `components:[]` допустим для хранения/очистки, но непригоден для расчёта. Изменение возвращает актуальную печь, включая смену bfId. Время `saveTime` сохраняется в UTC и стабильно после update/restart; старые и демонстрационные записи имеют null.
 
-`isImport=true` в обычном Add/Update запрещён (`VALIDATION_FAILED`). Сохранённый импорт обеим ролям запрещено обновлять (`IMPORTED_DATA_READ_ONLY`) или удалять (`IMPORTED_DATA_DELETE_FORBIDDEN`); снятие флага и замена состава также запрещены. Полная защита ORM по IMP-01 ещё отдельная задача. Команда создания child по VAR-01 и multipart-импорт IMP-03 пока не реализованы; parentId нельзя задавать текущим CRUD.
+`isImport=true` в обычном Add/Update запрещён (`VALIDATION_FAILED`). Сохранённый импорт обеим ролям запрещено обновлять (`IMPORTED_DATA_READ_ONLY`) или удалять (`IMPORTED_DATA_DELETE_FORBIDDEN`); снятие флага и замена состава также запрещены. Защита при прямой работе с объектами БД (IMP-01), создание дочернего варианта (VAR-01) и импорт файла (IMP-03) ещё не реализованы; `parentId` нельзя задать нынешними операциями.
 
 ## Обновление SDL
 
@@ -132,4 +129,4 @@ SDL доступна по `http://localhost:5000/graphql?sdl`, IDE — по `/gr
 .\tests\Run-ApiTests.ps1 -UpdateSchema
 ```
 
-Runner загружает `/graphql?sdl` из собранного API на изолированном HTTP/PG-стенде, сохраняет его с `-UpdateSchema` и сравнивает публичный SDL со снимком в тестах. Сервер не читает `requests/schema.graphql` как источник схемы. Необязательная операторская команда `--export-schema` выводит внутреннюю схему; runtime auth-директивы опускаются в публичном SDL, поэтому эти экспорты могут отличаться.
+Тестовый скрипт загружает `/graphql?sdl` временного API, сохраняет схему с `-UpdateSchema` и сравнивает её со снимком в тестах. Для обычной работы это не требуется. Сервер не читает `requests/schema.graphql` как источник схемы. Необязательная операторская команда `--export-schema` выводит внутреннюю схему; директивы проверки доступа не входят в публичный SDL, поэтому эти экспорты могут отличаться.
