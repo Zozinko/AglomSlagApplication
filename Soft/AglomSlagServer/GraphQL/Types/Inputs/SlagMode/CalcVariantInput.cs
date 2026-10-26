@@ -3,6 +3,9 @@ namespace AglomSlagServer.Types.Inputs.SlagMode;
 public class CalcVariantInput
 {
     public int BfId { get; set; }
+    // Compatibility field only: ownership is always assigned by the server.
+    [System.ComponentModel.DefaultValue(0)]
+    public int UserId { get; set; }
     public DateTime CalcDate { get; set; }
     public required string VariantName { get; set; }
     public bool IsImport { get; set; }

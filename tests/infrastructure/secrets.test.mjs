@@ -71,7 +71,7 @@ test('SEC-01: native host runtime loads Development env file and preserves proce
     const port = docker('port', 'postgres', '5432').trim().split(':').at(-1);
     const envFile = join(work, 'Soft', '.env');
     writeFileSync(envFile, `DB_HOST='localhost'\nDB_PORT='${port}'\nDB_USER='postgres'\nDB_PASSWORD='${password}'\n`);
-    const env = { ...process.env, ASPNETCORE_ENVIRONMENT: 'Development' };
+    const env = { ...process.env, ASPNETCORE_ENVIRONMENT: 'Development', JWT_SIGNING_KEY: process.env.API_TEST_JWT_KEY, JWT_ISSUER: 'aglom-tests', JWT_AUDIENCE: 'aglom-test-clients' };
     for (const key of Object.keys(env)) {
       if (/^(DB_|CONNECTION_|ConnectionStrings__|AGLOMSLAG_ENV_FILE)/i.test(key)) delete env[key];
     }
@@ -92,7 +92,7 @@ test('SEC-01: native host runtime loads Development env file and preserves proce
     assert.ok(endpoint, `Native .NET 10 runtime must start using the same loader as Rider profiles: ${logs}`);
     assert.match(logs, /Database check succeeded for SlagModeContext/);
     assert.match(logs, /Database check succeeded for AuthContext/);
-    const response = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"query":"{ hello blastFurnaces { bfId } }"}' });
+    const response = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${process.env.API_TEST_ACCESS_TOKEN}` }, body: '{"query":"{ hello blastFurnaces { bfId } }"}' });
     const body = await response.json();
     assert.equal(body.errors, undefined);
     assert.equal(body.data.hello, 'Aglom GraphQL API');

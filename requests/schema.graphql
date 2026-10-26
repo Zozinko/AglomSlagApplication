@@ -12,6 +12,10 @@ type Query {
 }
 
 type Mutation {
+  login(input: LoginInput!): LoginPayload! @cost(weight: "10")
+  logout: Boolean! @cost(weight: "10")
+  changePassword(currentPassword: String!, newPassword: String!): Boolean!
+    @cost(weight: "10")
   calculateAglom(input: CalculateAglomInput!): AglomCalculationResult!
   calculateSlagMode(input: InputDataModelInput!): OutputSlagMode!
   addBlastFurnace(bfName: String!): BlastFurnace! @cost(weight: "10")
@@ -74,6 +78,7 @@ type BlastFurnaceReference {
 
 type CalcVariant {
   variantId: Int!
+  userId: Int!
   bfId: Int!
   calcDate: DateTime!
   saveTime: DateTime
@@ -108,6 +113,7 @@ type CalcVariant {
 
 type CalcVariantReference {
   variantId: Int!
+  userId: Int!
   bfId: Int!
   calcDate: DateTime!
   saveTime: DateTime
@@ -178,13 +184,28 @@ type ComponentVariant {
   sContent: Float!
   mnOContent: Float!
   tiO2Content: Float!
-  componentGuide: ComponentGuideReference!
+  componentGuide: ComponentGuideReference
   calcVariant: CalcVariantReference!
+}
+
+type CurrentUserOutput {
+  userId: Int!
+  userName: String
+  userEmail: String!
+  admin: Boolean!
 }
 
 type KeyValuePairOfStringAndDouble {
   key: String!
   value: Float!
+}
+
+type LoginPayload {
+  accessToken: String!
+  accessExpiresAt: DateTime!
+  refreshToken: String!
+  refreshExpiresAt: DateTime!
+  user: CurrentUserOutput!
 }
 
 type OutputSlagMode {
@@ -233,6 +254,7 @@ input CalculateAglomInput {
 
 input CalcVariantInput {
   bfId: Int!
+  userId: Int! = 0
   calcDate: DateTime!
   variantName: String!
   isImport: Boolean!
@@ -368,6 +390,12 @@ input InputDataSlagInput {
   mgO: Float!
 }
 
+input LoginInput {
+  email: String
+  password: String
+  refreshToken: String
+}
+
 input MaterialInput {
   sourcename: String!
   consumption: Float!
@@ -379,6 +407,16 @@ input MaterialInput {
   s: Float!
   mnO: Float!
   tiO2: Float!
+}
+
+"Defines when a policy shall be executed."
+enum ApplyPolicy {
+  "Before the resolver was executed."
+  BEFORE_RESOLVER
+  "After the resolver was executed."
+  AFTER_RESOLVER
+  "The policy is applied in the validation step before the execution."
+  VALIDATION
 }
 
 enum FluxType {

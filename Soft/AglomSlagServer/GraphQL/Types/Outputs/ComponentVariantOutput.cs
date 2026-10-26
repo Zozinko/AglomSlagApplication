@@ -17,7 +17,7 @@ public sealed class ComponentVariantOutput
     public float SContent { get; set; }
     public float MnOContent { get; set; }
     public float TiO2Content { get; set; }
-    public required ComponentGuideReference ComponentGuide { get; set; }
+    public ComponentGuideReference? ComponentGuide { get; set; }
     public required CalcVariantReference CalcVariant { get; set; }
 }
 

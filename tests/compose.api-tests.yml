@@ -36,6 +36,17 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
+      JWT_SIGNING_KEY: ${API_TEST_JWT_KEY:?Use Run-ApiTests.ps1}
+      JWT_ISSUER: aglom-tests
+      JWT_AUDIENCE: aglom-test-clients
+      JWT_ACCESS_SECONDS: '900'
+      JWT_CLOCK_SKEW_SECONDS: '0'
+      AUTH_LOGIN_LIMIT: '1000'
+      DEMO_BOOTSTRAP: 'true'
+      DEMO_USER_EMAIL: ${API_TEST_USER_EMAIL:?Use Run-ApiTests.ps1}
+      DEMO_USER_PASSWORD: ${API_TEST_USER_PASSWORD:?Use Run-ApiTests.ps1}
+      DEMO_ADMIN_EMAIL: ${API_TEST_ADMIN_EMAIL:?Use Run-ApiTests.ps1}
+      DEMO_ADMIN_PASSWORD: ${API_TEST_ADMIN_PASSWORD:?Use Run-ApiTests.ps1}
       DB_HOST: postgres
       DB_PORT: '5432'
       DB_USER: postgres

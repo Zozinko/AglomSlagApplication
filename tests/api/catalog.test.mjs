@@ -15,7 +15,7 @@ const MISSING_ID = 2147483647;
 function assertGuide(actual, expected, componentId) {
   assert.equal(actual.componentId, componentId);
   assert.equal(actual.componentName, expected.componentName);
-  assert.equal(actual.userId, expected.userId);
+  assert.equal(actual.userId, -2, 'Authenticated creator remains owner; input.userId is ignored');
   for (const field of [
     'feContent', 'siO2Content', 'al2O3Content', 'caOContent',
     'mgOContent', 'sContent', 'mnOContent', 'tiO2Content',

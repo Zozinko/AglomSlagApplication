@@ -52,11 +52,48 @@ services:
       <<: *database
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
+      JWT_ISSUER: ${JWT_ISSUER:-aglomslag-local}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-aglomslag-clients}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in Soft/.env}
+      JWT_ACCESS_SECONDS: ${JWT_ACCESS_SECONDS:-300}
+      JWT_CLOCK_SKEW_SECONDS: ${JWT_CLOCK_SKEW_SECONDS:-5}
+      JWT_REFRESH_DAYS: ${JWT_REFRESH_DAYS:-7}
+      DEMO_BOOTSTRAP: ${DEMO_BOOTSTRAP:-true}
+      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-user@example.invalid}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:?Set DEMO_USER_PASSWORD in Soft/.env}
+      DEMO_ADMIN_EMAIL: ${DEMO_ADMIN_EMAIL:-admin@example.invalid}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:?Set DEMO_ADMIN_PASSWORD in Soft/.env}
     ports:
       - "5000:8080"
     networks:
       - agloslag_network
     restart: unless-stopped
+
+  bootstrap:
+    profiles: [setup]
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    command: [--bootstrap-demo]
+    environment:
+      <<: *database
+      JWT_ISSUER: ${JWT_ISSUER:-aglomslag-local}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-aglomslag-clients}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in Soft/.env}
+      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-}
+      DEMO_ADMIN_EMAIL: ${DEMO_ADMIN_EMAIL:-}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-}
+      BOOTSTRAP_EMAIL: ${BOOTSTRAP_EMAIL:-}
+      BOOTSTRAP_PASSWORD: ${BOOTSTRAP_PASSWORD:-}
+      BOOTSTRAP_NAME: ${BOOTSTRAP_NAME:-}
+      TARGET_USER_ID: ${TARGET_USER_ID:-}
+      NEW_PASSWORD: ${NEW_PASSWORD:-}
+    networks:
+      - agloslag_network
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
 
 networks:
   agloslag_network:

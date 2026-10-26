@@ -22,6 +22,8 @@ namespace DBStructure.DbContexts
             #endregion
 
             modelBuilder.Entity<CalcVariant>().Property(v => v.SaveTime).HasColumnType("timestamp with time zone");
+            modelBuilder.Entity<CalcVariant>().HasIndex(v => v.UserId);
+            modelBuilder.Entity<ComponentGuide>().HasIndex(v => v.UserId);
             // Historical variants preserve the former zero-sulfur assumption; this is not a measured value.
             modelBuilder.Entity<CalcVariant>().Property(v => v.SlagSContent).HasDefaultValue(0f);
 
@@ -79,13 +81,47 @@ namespace DBStructure.DbContexts
 
             // 3. Варианты расчета
             modelBuilder.Entity<CalcVariant>().HasData(
-                new 
+                new
                 {
                     VariantId = -1,
+                    UserId = -1,
                     BfId = -1,
                     CalcDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                     SaveTime = (DateTime?)null,
                     VariantName = "-1st variant",
+                    IsImport = false,
+                    // Coke
+                    CokeConsumption = 419.8f,
+                    CokeSContent = 0.428f,
+                    CokeAshAmount = 12.7f,
+                    CokeAshCaOContent = 7.8f,
+                    CokeAshSiO2Content = 48.1f,
+                    CokeAshAl2O3Content = 24.6f,
+                    CokeAshMgOContent = 2f,
+                    // Slag
+                    SlagSContent = 0f,
+                    SlagCaOContent = 40.9f,
+                    SlagSiO2Content = 36.56f,
+                    SlagTiO2Content = 0.01f,
+                    SlagAl2O3Content = 24.6f,
+                    SlagMgOContent = 2f,
+                    // Castiron
+                    CiTemperature = 1450f,
+                    CiSiContent = 0.512f,
+                    CiSContent = 0.016f,
+                    CiMnContent = 0.2f,
+                    CiCContent = 4.702f,
+                    CiTiContent = 0f,
+                    CiCrContent = 0f
+                },
+                new
+                {
+                    VariantId = -2,
+                    UserId = -2,
+                    BfId = -1,
+                    CalcDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    SaveTime = (DateTime?)null,
+                    VariantName = "Admin demonstration variant",
                     IsImport = false,
                     // Coke
                     CokeConsumption = 419.8f,

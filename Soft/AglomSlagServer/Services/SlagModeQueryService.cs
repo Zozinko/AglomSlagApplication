@@ -1,3 +1,4 @@
+using AglomSlagServer.Auth;
 using AglomSlagServer.Errors;
 using AglomSlagServer.Types.Outputs;
 using AglomSlagServer.Types.Inputs.SlagMode;
@@ -10,64 +11,69 @@ namespace AglomGraphQL.Api.Services;
 public class SlagModeQueryService
 {
     private readonly IDbContextFactory<SlagModeContext> _contextFactory;
+    private readonly CurrentActor _actor;
 
-    public SlagModeQueryService(IDbContextFactory<SlagModeContext> contextFactory)
+    public SlagModeQueryService(IDbContextFactory<SlagModeContext> contextFactory, CurrentActor actor)
     {
         _contextFactory = contextFactory;
+        _actor = actor;
     }
 
     public async Task<List<BlastFurnaceOutput>> GetBlastFurnacesAsync()
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        return await SlagModeOutputReader.Furnaces(context);
+        return await SlagModeOutputReader.Furnaces(context, _actor);
     }
 
     public async Task<List<ComponentGuideOutput>> GetComponentGuidesAsync()
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        return await SlagModeOutputReader.Guides(context);
+        return await SlagModeOutputReader.Guides(context, _actor);
     }
 
     public async Task<List<CalcVariantOutput>> GetCalcVariantsAsync()
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        return await SlagModeOutputReader.Variants(context);
+        return await SlagModeOutputReader.Variants(context, _actor);
     }
 
     public async Task<CalcVariantOutput?> GetCalcVariantByIdAsync(int variantId)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        return (await SlagModeOutputReader.Variants(context, variantId)).SingleOrDefault();
+        return (await SlagModeOutputReader.Variants(context, _actor, variantId)).SingleOrDefault();
     }
     // ========== BLAST FURNACE CRUD ==========
-    
+
     public async Task<BlastFurnaceOutput> AddBlastFurnaceAsync(string bfName)
     {
+        _actor.RequireAdmin();
         await using var context = await _contextFactory.CreateDbContextAsync();
         ValidateName(bfName);
         var bf = new BlastFurnace { BfName = bfName };
         context.BlastFurnaces.Add(bf);
         await context.SaveChangesAsync();
-        return (await SlagModeOutputReader.Furnaces(context, bf.BfId)).Single();
+        return (await SlagModeOutputReader.Furnaces(context, _actor, bf.BfId)).Single();
     }
 
     public async Task<BlastFurnaceOutput?> UpdateBlastFurnaceAsync(int bfId, string bfName)
     {
+        _actor.RequireAdmin();
         await using var context = await _contextFactory.CreateDbContextAsync();
         var bf = await context.BlastFurnaces.FindAsync(bfId);
         if (bf == null) return null;
-        
+
         ValidateName(bfName);
         bf.BfName = bfName;
         await context.SaveChangesAsync();
-        return (await SlagModeOutputReader.Furnaces(context, bf.BfId)).Single();
+        return (await SlagModeOutputReader.Furnaces(context, _actor, bf.BfId)).Single();
     }
 
     public async Task<bool> DeleteBlastFurnaceAsync(int bfId)
     {
+        _actor.RequireAdmin();
         await using var context = await _contextFactory.CreateDbContextAsync();
         var bf = await context.BlastFurnaces.FindAsync(bfId);
-        
+
         if (bf == null) return false;
 
         if (await context.CalcVariants.AnyAsync(v => v.BfId == bfId))
@@ -79,7 +85,7 @@ public class SlagModeQueryService
     }
 
     // ========== COMPONENT GUIDE CRUD ==========
-    
+
     public async Task<ComponentGuideOutput> AddComponentGuideAsync(ComponentGuideInput input)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
@@ -87,7 +93,7 @@ public class SlagModeQueryService
         var component = new ComponentGuide
         {
             ComponentName = input.ComponentName,
-            UserId = input.UserId,
+            UserId = _actor.UserId,
             FeContent = input.FeContent,
             SiO2Content = input.SiO2Content,
             Al2O3Content = input.Al2O3Content,
@@ -100,18 +106,17 @@ public class SlagModeQueryService
 
         context.ComponentsGuide.Add(component);
         await context.SaveChangesAsync();
-        return (await SlagModeOutputReader.Guides(context, component.ComponentId)).Single();
+        return (await SlagModeOutputReader.Guides(context, _actor, component.ComponentId)).Single();
     }
 
     public async Task<ComponentGuideOutput?> UpdateComponentGuideAsync(int componentId, ComponentGuideInput input)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        var component = await context.ComponentsGuide.FindAsync(componentId);
+        var component = await context.ComponentsGuide.SingleOrDefaultAsync(c => c.ComponentId == componentId && (_actor.Admin || c.UserId == _actor.UserId));
         if (component == null) return null;
 
         ValidateName(input.ComponentName);
         component.ComponentName = input.ComponentName;
-        component.UserId = input.UserId;
         component.FeContent = input.FeContent;
         component.SiO2Content = input.SiO2Content;
         component.Al2O3Content = input.Al2O3Content;
@@ -122,13 +127,13 @@ public class SlagModeQueryService
         component.TiO2Content = input.TiO2Content;
 
         await context.SaveChangesAsync();
-        return (await SlagModeOutputReader.Guides(context, component.ComponentId)).Single();
+        return (await SlagModeOutputReader.Guides(context, _actor, component.ComponentId)).Single();
     }
 
     public async Task<bool> DeleteComponentGuideAsync(int componentId)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        var component = await context.ComponentsGuide.FindAsync(componentId);
+        var component = await context.ComponentsGuide.SingleOrDefaultAsync(c => c.ComponentId == componentId && (_actor.Admin || c.UserId == _actor.UserId));
 
         if (component == null) return false;
 
@@ -141,22 +146,23 @@ public class SlagModeQueryService
     }
 
     // ========== CALC VARIANT CRUD ==========
-    
+
     public async Task<CalcVariantOutput> AddCalcVariantAsync(CalcVariantInput input, List<ComponentVariantInput> components)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
         await ValidateVariant(context, input, components);
-        var bf = await context.BlastFurnaces.FindAsync(input.BfId) 
+        var bf = await context.BlastFurnaces.FindAsync(input.BfId)
             ?? throw new ApiException(PublicErrorCodes.ReferenceNotFound, "Печь не найдена.");
 
         var variant = new CalcVariant
         {
             BfId = input.BfId,
+            UserId = _actor.UserId,
             BlastFurnace = bf,
             SaveTime = DateTime.UtcNow,
             CalcDate = input.CalcDate,
             VariantName = input.VariantName,
-            IsImport = input.IsImport,
+            IsImport = false,
             CokeConsumption = input.CokeConsumption,
             CokeSContent = input.CokeSContent,
             CokeAshAmount = input.CokeAshAmount,
@@ -195,7 +201,7 @@ public class SlagModeQueryService
 
         context.CalcVariants.Add(variant);
         await context.SaveChangesAsync();
-        return (await SlagModeOutputReader.Variants(context, variant.VariantId)).Single();
+        return (await SlagModeOutputReader.Variants(context, _actor, variant.VariantId)).Single();
     }
 
     public async Task<CalcVariantOutput?> UpdateCalcVariantAsync(int variantId, CalcVariantInput input, List<ComponentVariantInput> components)
@@ -203,15 +209,17 @@ public class SlagModeQueryService
         await using var context = await _contextFactory.CreateDbContextAsync();
         var variant = await context.CalcVariants
             .Include(v => v.ComponentVariants)
-            .FirstOrDefaultAsync(v => v.VariantId == variantId);
+            .FirstOrDefaultAsync(v => v.VariantId == variantId && (_actor.Admin || v.UserId == _actor.UserId));
 
         if (variant == null) return null;
+
+        if (variant.IsImport)
+            throw new ApiException("IMPORTED_DATA_READ_ONLY", "Импортированный оригинал доступен только для чтения.");
 
         await ValidateVariant(context, input, components);
         variant.BfId = input.BfId;
         variant.CalcDate = input.CalcDate;
         variant.VariantName = input.VariantName;
-        variant.IsImport = input.IsImport;
         variant.CokeConsumption = input.CokeConsumption;
         variant.CokeSContent = input.CokeSContent;
         variant.CokeAshAmount = input.CokeAshAmount;
@@ -252,14 +260,17 @@ public class SlagModeQueryService
         }).ToList();
 
         await context.SaveChangesAsync();
-        return (await SlagModeOutputReader.Variants(context, variant.VariantId)).Single();
+        return (await SlagModeOutputReader.Variants(context, _actor, variant.VariantId)).Single();
     }
 
     public async Task<bool> DeleteCalcVariantAsync(int variantId)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        var variant = await context.CalcVariants.FindAsync(variantId);
+        var variant = await context.CalcVariants.SingleOrDefaultAsync(v => v.VariantId == variantId && (_actor.Admin || v.UserId == _actor.UserId));
         if (variant == null) return false;
+
+        if (variant.IsImport)
+            throw new ApiException("IMPORTED_DATA_DELETE_FORBIDDEN", "Удаление импортированного оригинала запрещено.");
 
         if (await context.CalcVariants.AnyAsync(v => v.ParentId == variantId))
             throw new ApiException(PublicErrorCodes.ReferenceConflict, "У варианта есть дочерние варианты.");
@@ -274,9 +285,11 @@ public class SlagModeQueryService
             throw new ApiException(PublicErrorCodes.ValidationFailed, "Имя не должно быть пустым.");
     }
 
-    private static async Task ValidateVariant(SlagModeContext context, CalcVariantInput input,
+    private async Task ValidateVariant(SlagModeContext context, CalcVariantInput input,
         List<ComponentVariantInput> components)
     {
+        if (input.IsImport)
+            throw new ApiException(PublicErrorCodes.ValidationFailed, "Признак импорта назначается сервером при импорте файла.");
         ValidateName(input.VariantName);
         if (input.CalcDate.Kind != DateTimeKind.Utc)
             throw new ApiException(PublicErrorCodes.ValidationFailed, "Дата расчёта должна быть задана в UTC.");
@@ -286,8 +299,8 @@ public class SlagModeQueryService
         if (!await context.BlastFurnaces.AnyAsync(b => b.BfId == input.BfId))
             throw new ApiException(PublicErrorCodes.ReferenceNotFound, "Печь не найдена.");
         var ids = components.Select(c => c.ComponentId).ToArray();
-        var found = await context.ComponentsGuide.CountAsync(c => ids.Contains(c.ComponentId));
+        var found = await context.ComponentsGuide.CountAsync(c => ids.Contains(c.ComponentId) && (_actor.Admin || c.UserId == _actor.UserId));
         if (found != ids.Length)
-            throw new ApiException(PublicErrorCodes.ReferenceNotFound, "Один или несколько компонентов не найдены.");
+            throw new ApiException(PublicErrorCodes.Forbidden, "Один или несколько компонентов недоступны.");
     }
 }

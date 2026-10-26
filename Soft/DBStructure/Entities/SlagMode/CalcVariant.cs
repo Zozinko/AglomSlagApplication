@@ -11,6 +11,7 @@ namespace DBStructure.Entities.SlagMode
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int VariantId { get; set; }
+        public int UserId { get; set; }
         public int BfId { get; set; }
         public DateTime CalcDate { get; set; }
         public DateTime? SaveTime { get; set; }

@@ -3,6 +3,7 @@ namespace AglomSlagServer.Types.Inputs.SlagMode;
 public class ComponentGuideInput
 {
     public required string ComponentName { get; set; }
+    // Compatibility field only: ownership is always assigned by the server.
     public int UserId { get; set; }
     public float FeContent { get; set; }
     public float SiO2Content { get; set; }

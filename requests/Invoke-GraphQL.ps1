@@ -12,23 +12,28 @@ param(
     [ValidateSet('Hello', 'BlastFurnaces', 'ComponentGuides', 'CalcVariants', 'CalcVariantById',
         'CalculateAglom', 'CalculateSlagMode', 'AddBlastFurnace', 'UpdateBlastFurnace',
         'DeleteBlastFurnace', 'AddComponentGuide', 'UpdateComponentGuide', 'DeleteComponentGuide',
-        'AddCalcVariant', 'UpdateCalcVariant', 'DeleteCalcVariant')]
+        'AddCalcVariant', 'UpdateCalcVariant', 'DeleteCalcVariant', 'Login', 'Logout', 'ChangePassword')]
     [string]$Operation,
     [string]$VariablesPath,
+    [object]$Variables,
     [uri]$Endpoint = 'http://localhost:5000/graphql',
     [hashtable]$Headers = @{},
+    [string]$AccessToken,
     [ValidateRange(1, 600)]
     [int]$TimeoutSec = 60
 )
 
 $ErrorActionPreference = 'Stop'
+if ($AccessToken) { $Headers['Authorization'] = "Bearer $AccessToken" }
 $operationPath = Join-Path $PSScriptRoot "operations/$Operation.graphql"
-if (-not $VariablesPath) {
+if (-not $VariablesPath -and -not $PSBoundParameters.ContainsKey('Variables')) {
     $VariablesPath = Join-Path $PSScriptRoot "examples/$Operation.variables.json"
 }
 
 $query = Get-Content -LiteralPath $operationPath -Raw -Encoding UTF8
-$variables = Get-Content -LiteralPath $VariablesPath -Raw -Encoding UTF8 | ConvertFrom-Json
+if (-not $PSBoundParameters.ContainsKey('Variables')) {
+    $Variables = Get-Content -LiteralPath $VariablesPath -Raw -Encoding UTF8 | ConvertFrom-Json
+}
 $body = @{
     operationName = $Operation
     query = $query
@@ -40,7 +45,8 @@ $response = Invoke-RestMethod -Uri $Endpoint -Method Post -Headers $Headers `
     -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -TimeoutSec $TimeoutSec
 
 if ($response.errors) {
-    throw ("GraphQL вернул errors: " + ($response | ConvertTo-Json -Depth 100))
+    $codes = @($response.errors | ForEach-Object { if ($_.extensions.code) { $_.extensions.code } else { 'GRAPHQL_ERROR' } })
+    throw ("GraphQL вернул errors: " + ($codes -join ', '))
 }
 
 $response

@@ -131,6 +131,9 @@ namespace DBStructure.Migrations.SlagMode
                     b.Property<float>("SlagTiO2Content")
                         .HasColumnType("real");
 
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("VariantName")
                         .IsRequired()
                         .HasColumnType("text");
@@ -140,6 +143,8 @@ namespace DBStructure.Migrations.SlagMode
                     b.HasIndex("BfId");
 
                     b.HasIndex("ParentId");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("CalcVariants");
 
@@ -170,7 +175,37 @@ namespace DBStructure.Migrations.SlagMode
                             SlagSContent = 0f,
                             SlagSiO2Content = 36.56f,
                             SlagTiO2Content = 0.01f,
+                            UserId = -1,
                             VariantName = "-1st variant"
+                        },
+                        new
+                        {
+                            VariantId = -2,
+                            BfId = -1,
+                            CalcDate = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CiCContent = 4.702f,
+                            CiCrContent = 0f,
+                            CiMnContent = 0.2f,
+                            CiSContent = 0.016f,
+                            CiSiContent = 0.512f,
+                            CiTemperature = 1450f,
+                            CiTiContent = 0f,
+                            CokeAshAl2O3Content = 24.6f,
+                            CokeAshAmount = 12.7f,
+                            CokeAshCaOContent = 7.8f,
+                            CokeAshMgOContent = 2f,
+                            CokeAshSiO2Content = 48.1f,
+                            CokeConsumption = 419.8f,
+                            CokeSContent = 0.428f,
+                            IsImport = false,
+                            SlagAl2O3Content = 24.6f,
+                            SlagCaOContent = 40.9f,
+                            SlagMgOContent = 2f,
+                            SlagSContent = 0f,
+                            SlagSiO2Content = 36.56f,
+                            SlagTiO2Content = 0.01f,
+                            UserId = -2,
+                            VariantName = "Admin demonstration variant"
                         });
                 });
 
@@ -214,6 +249,8 @@ namespace DBStructure.Migrations.SlagMode
                         .HasColumnType("integer");
 
                     b.HasKey("ComponentId");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("ComponentsGuide");
 

@@ -4,6 +4,7 @@ namespace AglomSlagServer.Types.Outputs;
 public sealed class CalcVariantReference
 {
     public int VariantId { get; set; }
+    public int UserId { get; set; }
     public int BfId { get; set; }
     public DateTime CalcDate { get; set; }
     public DateTime? SaveTime { get; set; }

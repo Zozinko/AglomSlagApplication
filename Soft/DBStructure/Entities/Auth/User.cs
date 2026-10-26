@@ -11,6 +11,8 @@ namespace DBStructure.Entities.Auth
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int UserId { get; set; }
+        public bool Admin { get; set; }
+        public bool Disabled { get; set; }
         public string? UserName { get; set; }
         public required string PasswordHash { get; set; }
         public required string UserEmail { get; set; }

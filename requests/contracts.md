@@ -15,7 +15,7 @@
 | Поле | Тип | Смысл |
 |---|---|---|
 | `componentName` | `String!` | имя материала |
-| `userId` | `Int!` | метка пользователя; не проверяется по Auth |
+| `userId` | `Int!` | прежний обязательный совместимый аргумент; сервер игнорирует его и назначает владельца из JWT |
 | `feContent` | `Float!` | Fe |
 | `siO2Content` | `Float!` | SiO2 |
 | `al2O3Content` | `Float!` | Al2O3 |
@@ -31,7 +31,7 @@ Output `ComponentGuide` дополнительно содержит `componentId
 
 Элемент отдельного аргумента `components` в add/update варианта. Поля: `componentId: Int!`, `componentName: String!`, `consumption: Float!` и все восемь полей состава `*Content` из предыдущей таблицы. `userId` здесь отсутствует.
 
-`componentId` должен существовать в справочнике и не повторяться внутри одного варианта. Имя, расход и состав сохраняются из input, а не читаются автоматически из справочника. Output дополнительно содержит `variantId`, `calcVariant: CalcVariantReference!`, `componentGuide: ComponentGuideReference!`; обе ссылки загружаются и указывают на реальные связанные записи. Скалярные reference-типы не имеют обратных навигаций.
+`componentId` должен существовать в справочнике и не повторяться внутри одного варианта. Имя, расход и состав сохраняются из input, а не читаются автоматически из справочника. Output дополнительно содержит `variantId`, `calcVariant: CalcVariantReference!`, `componentGuide: ComponentGuideReference`; справочник скрывается (null), если его владелец недоступен текущему пользователю. Скалярные reference-типы не имеют обратных навигаций.
 
 ## Сохранение: CalcVariantInput
 
@@ -40,7 +40,7 @@ Output `ComponentGuide` дополнительно содержит `componentId
 | Группа | Поля | Назначение |
 |---|---|---|
 | Идентификация | `bfId: Int!`, `variantName: String!` | существующая печь и имя варианта |
-| Дата и источник | `calcDate: DateTime!`, `isImport: Boolean!` | дата расчёта в UTC ISO 8601 и признак импорта; специальной импортной обработки нет |
+| Дата и источник | `calcDate: DateTime!`, `isImport: Boolean!` | дата расчёта UTC ISO8601; обычный CRUD допускает только isImport=false, оригинал защищён от update/delete |
 | Кокс | `cokeConsumption`, `cokeSContent`, `cokeAshAmount` | расход, сера, количество золы |
 | Зола кокса | `cokeAshCaOContent`, `cokeAshSiO2Content`, `cokeAshAl2O3Content`, `cokeAshMgOContent` | состав золы |
 | Шлак | `slagCaOContent`, `slagSiO2Content`, `slagTiO2Content`, `slagAl2O3Content`, `slagMgOContent` | состав шлака |
@@ -56,12 +56,12 @@ Input не содержит `variantId`, `saveTime`, `parentId` и `components`.
 | `extensions.code` | Значение |
 |---|---|
 | `VALIDATION_FAILED` | пустое имя, дубликаты компонентов, неверная дата или вход расчёта |
-| `REFERENCE_NOT_FOUND` | отсутствующая печь/компонент при записи варианта |
+| `REFERENCE_NOT_FOUND` | отсутствующая печь при записи варианта (чужой/отсутствующий компонент — FORBIDDEN) |
 | `REFERENCE_CONFLICT` | используемая запись, родитель с детьми, ожидаемый FK/PK-конфликт |
 | `CALCULATION_FAILED` | исключение DLL или нечисловой результат шлакового расчёта |
 | `INTERNAL_ERROR` | неожидаемая внутренняя ошибка; детали клиенту не раскрываются |
 
-`FORBIDDEN`, `IMPORT_PROTECTED`, `FILE_ERROR`, `PRESET_NOT_SUPPORTED` зарезервированы в общем словаре. Auth, защита импортов, импорт файла и пресеты ещё не реализованы; наличие константы не означает работающий endpoint. Отсутствующий объект по-прежнему даёт `null` при update/read-by-ID и `false` при delete. После отказа валидации данные не изменяются.
+FORBIDDEN используется при отказе доступа; auth и защита действующих API-путей импортных оригиналов реализованы. IMPORT_PROTECTED/FILE_ERROR/PRESET_NOT_SUPPORTED остаются зарезервированными для будущих путей импорта/пресетов; полный ORM-инвариант IMP-01 ещё не реализован. Отсутствующий объект по-прежнему даёт `null` при update/read-by-ID и `false` при delete. После отказа валидации данные не изменяются.
 
 ## Расчёт: InputDataModelInput (шлаковый режим)
 
@@ -163,3 +163,13 @@ Input не содержит `variantId`, `saveTime`, `parentId` и `components`.
 | `reportOxideSum` | отчётная сумма оксидов |
 
 Все `report*` — `Float!`. Адаптер только копирует результаты DLL; не следует трактовать каждую промежуточную строку как нормированный процент конечного продукта. В проверенном примере библиотека вернула строки «Шихта», «Известняк», «Доломит», «Коксик», «Зола коксика», «Итог». Это наблюдение конкретного примера, а не жёстко заданный сервером список.
+
+## Авторизация и новые контракты (26.10.2026)
+
+Все прежние операции требуют Bearer JWT. Login (credentials либо refresh), Logout, ChangePassword и безопасный user DTO: [authentication.md](../docs/authentication.md). LoginInput: email/password/refreshToken nullable с default null, выбирается ровно один режим. LoginPayload: accessToken, accessExpiresAt, refreshToken, refreshExpiresAt, user (userId, userName?, userEmail, admin). Пароль/хеш в output отсутствуют.
+
+CalcVariant/CalcVariantRef имеют userId:Int!, владелец назначается сервером и сохраняется при admin-update. CalcVariantInput.userId имеет Int! = 0 (можно опустить); прежний ComponentGuideInput.userId остаётся обязательным Int!. Оба игнорируются сервером. componentGuide в ComponentVariant nullable при недоступном владельцу справочнике; чужие parentId/parent/children скрываются. SaveTime хранится UTC, у старой истории null.
+
+Дополнительные коды: AUTH_NOT_AUTHENTICATED, INVALID_CREDENTIALS, LOGIN_RATE_LIMITED, FORBIDDEN, IMPORTED_DATA_READ_ONLY, IMPORTED_DATA_DELETE_FORBIDDEN. Чужая/отсутствующая печь редактируется только admin, отсутствующая ссылка на печь даёт REFERENCE_NOT_FOUND; чужой/отсутствующий componentId при сохранении состава даёт FORBIDDEN. Внешние ограничения ролей и защита импортов действуют независимо. Публичный isImport не даёт права создавать импорт; true отклоняется обычным CRUD.
+
+API использует HTTP также в Production: `http://localhost:5000/graphql`. IDE, GET, SDL и introspection доступны публично; все бизнес-поля, кроме login, требуют JWT, в том числе в смешанном документе с login.

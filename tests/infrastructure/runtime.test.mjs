@@ -22,7 +22,7 @@ const ef = (...args) => docker('run', '--rm', '--no-deps', '--entrypoint', 'dotn
 async function ready(endpoint = process.env.GRAPHQL_TEST_URL) {
   for (let attempt = 0; attempt < 100; attempt++) {
     try {
-      const response = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"query":"{ hello }"}', signal: AbortSignal.timeout(1000) });
+      const response = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${process.env.API_TEST_ACCESS_TOKEN}` }, body: '{"query":"{ hello }"}', signal: AbortSignal.timeout(1000) });
       if ((await response.json()).data?.hello === 'Aglom GraphQL API') return;
     } catch { }
     await delay(200);
@@ -80,11 +80,11 @@ test('BUG-01/11: migrate a previous schema with existing rows, repeat migration,
   ef('database', 'update', '20261018094542_EditReferences', ...efArgs, '--connection', connection('ApiUpgrade'));
   sql(`INSERT INTO "CalcVariants" SELECT (jsonb_populate_record(NULL::"CalcVariants", to_jsonb(v) || '{"VariantId":101,"VariantName":"legacy-before-upgrade"}'::jsonb)).* FROM "CalcVariants" v WHERE "VariantId"=-1;`, 'ApiUpgrade');
   ef('database', 'update', ...efArgs, '--connection', connection('ApiUpgrade'));
-  assert.equal(sql('SELECT COUNT(*) FROM "CalcVariants";', 'ApiUpgrade'), '2');
-  assert.equal(sql('SELECT COUNT(*) FROM "CalcVariants" WHERE "SaveTime" IS NULL;', 'ApiUpgrade'), '2');
-  assert.equal(sql('SELECT COUNT(*) FROM "CalcVariants" WHERE "SlagSContent"=0;', 'ApiUpgrade'), '2');
+  assert.equal(sql('SELECT COUNT(*) FROM "CalcVariants";', 'ApiUpgrade'), '3');
+  assert.equal(sql('SELECT COUNT(*) FROM "CalcVariants" WHERE "SaveTime" IS NULL;', 'ApiUpgrade'), '3');
+  assert.equal(sql('SELECT COUNT(*) FROM "CalcVariants" WHERE "SlagSContent"=0;', 'ApiUpgrade'), '3');
   ef('database', 'update', ...efArgs, '--connection', connection('ApiUpgrade'));
-  assert.equal(sql('SELECT COUNT(*) FROM "CalcVariants" WHERE "SaveTime" IS NULL;', 'ApiUpgrade'), '2');
+  assert.equal(sql('SELECT COUNT(*) FROM "CalcVariants" WHERE "SaveTime" IS NULL;', 'ApiUpgrade'), '3');
   ef('migrations', 'has-pending-model-changes', ...efArgs);
 });
 
@@ -161,7 +161,7 @@ test('BUG-06/07: Development diagnostics remain safe and actual alternate port i
     assert.match(port, /^127\.0\.0\.1:\d+$/);
     const endpoint = `http://${port}/graphql`;
     await ready(endpoint);
-    const response = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query: document('AddBlastFurnace'), variables: { bfName: ' ' } }), signal: AbortSignal.timeout(10_000) });
+    const response = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${process.env.API_TEST_ACCESS_TOKEN}` }, body: JSON.stringify({ query: document('AddBlastFurnace'), variables: { bfName: ' ' } }), signal: AbortSignal.timeout(10_000) });
     const body = await response.json();
     assert.equal(body.errors?.[0]?.extensions?.code, 'VALIDATION_FAILED', JSON.stringify(body));
     assert.doesNotMatch(JSON.stringify(body), /stackTrace|Password|api-tests-only|Npgsql|SELECT |INSERT /i);

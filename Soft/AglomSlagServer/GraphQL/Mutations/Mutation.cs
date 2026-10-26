@@ -4,11 +4,24 @@ using AglomGraphQL.Api.Services;
 using AglomSlagServer.Types.Inputs.SlagMode;
 using SlagModeSolver.DTOs;
 using AglomSlagServer.Types.Outputs;
+using AglomSlagServer.Auth;
+using HotChocolate.Authorization;
 
 namespace AglomSlagServer.Mutations;
 
+[Authorize]
 public class Mutation(SlagModeCalculationService slagCalcService, AglomCalculationService aglomCalcService, SlagModeQueryService slagModeService)
 {
+    [AllowAnonymous]
+    public Task<LoginPayload> Login(LoginInput input, [Service] AuthService auth) => auth.LoginAsync(input);
+
+    public Task<bool> Logout([Service] RefreshSessionService sessions, [Service] IHttpContextAccessor http) =>
+        sessions.LogoutAsync(http.HttpContext!.User);
+
+    public Task<bool> ChangePassword(string currentPassword, string newPassword,
+        [Service] PasswordChangeService passwords, [Service] IHttpContextAccessor http) =>
+        passwords.ChangeAsync(http.HttpContext!.User, currentPassword, newPassword);
+
     public AglomCalculationResult CalculateAglom(CalculateAglomInput input)
     {
         return aglomCalcService.Calculate(input);

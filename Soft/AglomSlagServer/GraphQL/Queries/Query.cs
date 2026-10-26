@@ -3,6 +3,7 @@ using AglomSlagServer.Types.Outputs;
 
 namespace AglomSlagServer.Queries;
 
+[HotChocolate.Authorization.Authorize]
 public class Query(SlagModeQueryService slagModeService)
 {
     public string Hello() => "Aglom GraphQL API";

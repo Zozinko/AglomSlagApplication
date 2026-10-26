@@ -12,11 +12,12 @@ const EXPECTED_ROOT_FIELDS = {
     'calculateAglom', 'calculateSlagMode', 'addBlastFurnace', 'updateBlastFurnace',
     'deleteBlastFurnace', 'addComponentGuide', 'updateComponentGuide',
     'deleteComponentGuide', 'addCalcVariant', 'updateCalcVariant', 'deleteCalcVariant',
+    'login', 'logout', 'changePassword',
   ],
 };
 
 function parseRootFields(sdl, rootType) {
-  const match = sdl.match(new RegExp(`\\btype\\s+${rootType}\\s*\\{([\\s\\S]*?)\\n\\}`));
+  const match = sdl.match(new RegExp(`\\btype\\s+${rootType}[^\\{]*\\{([\\s\\S]*?)\\n\\}`));
   assert.ok(match, `SDL should declare type ${rootType}`);
   return [...match[1].matchAll(/^[ \t]{2}([_A-Za-z][_0-9A-Za-z]*)\s*(?:\(|:)/gm)]
     .map(([, field]) => field);
@@ -30,13 +31,13 @@ function assertGraphQLErrorsWithoutPath(response, label) {
     `${label}: parse, validation, or input-coercion errors should not have resolver paths`);
 }
 
-test('GET /graphql?sdl exposes exactly the documented query and mutation fields', async () => {
+test('Public SDL matches the documented schema', async () => {
   const endpoint = process.env.GRAPHQL_TEST_URL;
   assert.ok(endpoint, 'GRAPHQL_TEST_URL is required; no live endpoint is assumed');
   const url = new URL(endpoint);
   url.searchParams.set('sdl', '');
   const response = await fetch(url, { signal: AbortSignal.timeout(60_000) });
-  assert.equal(response.status, 200, 'SDL endpoint should respond successfully');
+  assert.equal(response.status, 200, 'SDL is available to API clients without authentication');
   const sdl = await response.text();
   const saved = readFileSync(new URL('../../requests/schema.graphql', import.meta.url), 'utf8');
   const normalize = value => value.replace(/\r\n/g, '\n').trim();
@@ -47,7 +48,7 @@ test('GET /graphql?sdl exposes exactly the documented query and mutation fields'
   assert.deepEqual([...actualQuery].sort(), [...EXPECTED_ROOT_FIELDS.query].sort());
   assert.deepEqual([...actualMutation].sort(), [...EXPECTED_ROOT_FIELDS.mutation].sort());
   assert.equal(actualQuery.length, 5);
-  assert.equal(actualMutation.length, 11);
+  assert.equal(actualMutation.length, 14);
 });
 
 test('hello query returns the documented readiness string', async () => {
@@ -101,9 +102,8 @@ test('GraphQL rejects syntax, unknown fields, missing required values, wrong typ
   }
 });
 
-test('Production GraphQL introspection is rejected with HC0046', async () => {
-  const response = await graphql('{ __type(name: "Query") { name } }');
-  assertGraphQLErrorsWithoutPath(response, 'introspection');
-  assert.ok(response.body.errors.some(({ extensions }) => extensions?.code === 'HC0046'),
-    'Production introspection should report Hot Chocolate error HC0046');
+test('GraphQL introspection is available for the browser API explorer', async () => {
+  const response = await graphql('{ __type(name: "Query") { name } }', {}, null);
+  assert.equal(response.body.errors, undefined);
+  assert.equal(response.body.data.__type.name, 'Query');
 });

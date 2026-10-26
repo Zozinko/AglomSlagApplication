@@ -52,7 +52,7 @@ function changedInput(bfId, name = `api-variant-${randomUUID()}`) {
   for (const key of Object.keys(input)) {
     if (typeof input[key] === 'number' && key !== 'bfId') input[key] += ++index / 100;
   }
-  return { ...input, bfId, variantName: name, isImport: true, calcDate: '2026-06-17T12:34:56Z' };
+  return { ...input, bfId, variantName: name, isImport: false, calcDate: '2026-06-17T12:34:56Z' };
 }
 
 test('calc variant CRUD round-trips every scalar and component, relationships and replacement lists', async t => {
@@ -154,14 +154,14 @@ test('invalid furnace, component FK and duplicate components reject atomically o
       // Cleanup even an unexpected partial insert before failing the assertion.
       const unexpected = (await operation('CalcVariants')).calcVariants.filter(v => v.variantName === input.variantName);
       for (const variant of unexpected) await operation('DeleteCalcVariant', { variantId: variant.variantId });
-      expectErrors(add, { field: 'addCalcVariant', code: invalid.name === 'duplicate component' ? 'VALIDATION_FAILED' : 'REFERENCE_NOT_FOUND' });
+      expectErrors(add, { field: 'addCalcVariant', code: invalid.name === 'duplicate component' ? 'VALIDATION_FAILED' : invalid.name === 'missing component FK' ? 'FORBIDDEN' : 'REFERENCE_NOT_FOUND' });
       assert.equal(unexpected.length, 0, 'Failed add must not persist a variant or its children');
       assert.deepEqual(stableState(await readVariant(created.variantId)), original);
 
       const update = await graphql(document('UpdateCalcVariant'), {
         variantId: created.variantId, input, components: invalid.components,
       });
-      expectErrors(update, { field: 'updateCalcVariant', code: invalid.name === 'duplicate component' ? 'VALIDATION_FAILED' : 'REFERENCE_NOT_FOUND' });
+      expectErrors(update, { field: 'updateCalcVariant', code: invalid.name === 'duplicate component' ? 'VALIDATION_FAILED' : invalid.name === 'missing component FK' ? 'FORBIDDEN' : 'REFERENCE_NOT_FOUND' });
       assert.deepEqual(stableState(await readVariant(created.variantId)), original,
         'Failed update must preserve all original scalars, furnace and components');
     });

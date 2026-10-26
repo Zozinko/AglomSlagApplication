@@ -9,10 +9,10 @@ const requests = new URL('../../requests/', import.meta.url);
 export const document = name => readFileSync(new URL(`operations/${name}.graphql`, requests), 'utf8');
 export const example = name => JSON.parse(readFileSync(new URL(`examples/${name}.variables.json`, requests), 'utf8'));
 
-export async function graphql(query, variables = {}) {
+export async function graphql(query, variables = {}, accessToken = process.env.API_TEST_ACCESS_TOKEN) {
   const response = await fetch(endpoint(), {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}) },
     body: JSON.stringify({ query, variables }),
     signal: AbortSignal.timeout(60_000),
   });
@@ -29,7 +29,7 @@ export async function operation(name, variables = example(name)) {
 
 export function expectErrors(response, { field, messagePattern, code } = {}) {
   assert.ok([200, 400].includes(response.status), `Unexpected HTTP status ${response.status}`);
-  assert.ok(response.body.errors?.length, `Expected GraphQL errors: ${JSON.stringify(response.body)}`);
+  assert.ok(response.body.errors?.length, 'Expected GraphQL errors; response data omitted to protect credentials and tokens');
   if (field) assert.ok(response.body.errors.some(error => error.path?.includes(field)), JSON.stringify(response.body));
   if (messagePattern) assert.match(JSON.stringify(response.body.errors), messagePattern);
   if (code) assert.ok(response.body.errors.some(error => error.extensions?.code === code), JSON.stringify(response.body));
