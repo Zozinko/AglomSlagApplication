@@ -444,3 +444,4 @@ Soft/DBStructure/DBStructure.slnx
 !/logs/
 /logs/*
 !/logs/.gitkeep
+tasks/REPO-01/windows-import.md

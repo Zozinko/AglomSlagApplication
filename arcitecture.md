@@ -12,9 +12,19 @@
 4. Найти метод в `GraphQL/Queries/Query.cs` или `GraphQL/Mutations/Mutation.cs`, затем перейти к его сервису.
 5. Названия и типы полей сверять с [схемой API](requests/schema.graphql), их смысл — со [словарём полей](requests/contracts.md).
 
+Если используется инструмент для туннелирования трафика:
+
+```powershell
+docker compose --env-file Soft/.env -f Soft/Docker-compose.yml -f Soft/compose.private-network.yml up -d --build
+```
+
+В остальных случаях:
+
 ```powershell
 docker compose --env-file Soft/.env -f Soft/Docker-compose.yml up -d --build
 ```
+
+Дополнительный файл задаёт частную подсеть контейнеров. Выбор свободного диапазона и переключение уже созданной сети описаны в [настройке запуска](docs/configuration.md).
 
 После запуска доступен `http://localhost:5000/graphql`. Страница GraphQL, схема и список полей открыты всем. Бизнес-методы, кроме `login`, требуют токен. Демонстрационные пользователи создаются автоматически из `.env`; дополнительные команды для первого входа не нужны.
 
@@ -34,7 +44,7 @@ docker compose --env-file Soft/.env -f Soft/Docker-compose.yml up -d --build
 | `Soft/DBStructure/` | Классы таблиц, связи и изменения структуры БД — миграции |
 | `Soft/SlagModeSolver/` | Подготовка входа и результата расчёта шлака |
 | `Soft/MathLibs/` | Готовые математические DLL; их исходников здесь нет |
-| `Soft/docker/`, `Soft/Docker-compose.yml` | Сборка и запуск контейнеров |
+| `Soft/docker/`, `Soft/Docker-compose.yml`, `Soft/compose.private-network.yml` | Сборка и запуск контейнеров, дополнительная настройка подсети |
 | `Soft/.env`, `Soft/.env.example` | Рабочие настройки и шаблон без секретов |
 | `requests/` | Схема, документы GraphQL, примеры JSON и скрипт отправки запросов |
 | `tests/` | Проверки настоящего API и PostgreSQL, отдельные проверки паролей |
